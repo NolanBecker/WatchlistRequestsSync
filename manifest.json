@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.9.0",
+        "changelog": "Save plugin settings through Jellyfin's plugin configuration endpoint for reliable persistence.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/NolanBecker/WatchlistRequestsSync/releases/download/v1.0.9.0/Jellyfin.Plugin.WatchlistRequestsSync_1.0.9.0.zip",
+        "checksum": "fc3a23bedc5a7dc41154af2f51504f9c",
+        "timestamp": "2026-05-05T19:36:25.0000000+00:00"
+      },
+      {
         "version": "1.0.8.0",
         "changelog": "Use plain form controls for plugin settings so values save and reload reliably.",
         "targetAbi": "10.11.0.0",
