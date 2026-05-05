@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <BuildMetadataPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../build.yaml'))</BuildMetadataPath>
+    <BuildMetadataText>$([System.IO.File]::ReadAllText('$(BuildMetadataPath)'))</BuildMetadataText>
+    <PluginVersion>$([System.Text.RegularExpressions.Regex]::Match('$(BuildMetadataText)', 'version:\s*"([^"]+)"').Groups[1].Value)</PluginVersion>
+    <AssemblyName>Jellyfin.Plugin.WatchlistRequestsSync</AssemblyName>
+    <RootNamespace>Jellyfin.Plugin.WatchlistRequestsSync</RootNamespace>
+    <Version>$(PluginVersion)</Version>
+    <AssemblyVersion>$(PluginVersion)</AssemblyVersion>
+    <FileVersion>$(PluginVersion)</FileVersion>
+    <InformationalVersion>$(PluginVersion)</InformationalVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Jellyfin.Controller" Version="10.11.3">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="Jellyfin.Model" Version="10.11.3">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Configuration\configPage.html" />
+    <EmbeddedResource Include="Configuration\configPage.js" />
+    <EmbeddedResource Include="Configuration\configPage.css" />
+  </ItemGroup>
+</Project>

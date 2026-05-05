@@ -1,0 +1,16 @@
+# Local .NET CLI state used in this workspace
+.dotnet/
+artifacts/
+
+# Build output
+bin/
+obj/
+
+# Test output
+TestResults/
+*.trx
+
+# IDE and user-specific files
+.vs/
+*.user
+*.suo

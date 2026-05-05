@@ -1,0 +1,70 @@
+name: Release Plugin Repository
+
+on:
+  push:
+    tags:
+      - "v*"
+  release:
+    types:
+      - published
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || github.ref_name }}
+
+    steps:
+      - name: Check out release ref
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Set up .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Validate release tag matches build.yaml version
+        shell: pwsh
+        run: |
+          $metadata = ./scripts/Get-BuildMetadata.ps1
+          $expectedTag = "v$($metadata.version)"
+          $actualTag = "${{ env.RELEASE_TAG }}"
+          if ($expectedTag -ne $actualTag) {
+            throw "Release tag '$actualTag' does not match build.yaml version '$expectedTag'."
+          }
+
+      - name: Build solution
+        run: dotnet build WatchlistRequestsSync.sln -c Release
+
+      - name: Test solution
+        run: dotnet test WatchlistRequestsSync.sln -c Release --no-build
+        env:
+          DOTNET_ROLL_FORWARD: Major
+
+      - name: Package plugin
+        shell: pwsh
+        run: ./scripts/Package-Plugin.ps1
+
+      - name: Upload release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --notes ""
+          gh release upload "$RELEASE_TAG" artifacts/package/*.zip artifacts/package/*.md5 --clobber
+
+      - name: Generate Jellyfin manifest
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./scripts/Generate-Manifest.ps1 -Owner "NolanBecker" -Repository "WatchlistRequestsSync"
+
+      - name: Publish manifest to gh-pages
+        shell: pwsh
+        run: ./scripts/Publish-GitHubPages.ps1

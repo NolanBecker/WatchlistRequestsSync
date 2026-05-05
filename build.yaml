@@ -1,0 +1,26 @@
+name: "Watchlist Requests Sync"
+guid: "7b2cef2e-d5ea-43e2-be8e-ab2070b2d18e"
+version: "1.0.0.0"
+targetAbi: "10.11.3.0"
+framework: "net9.0"
+overview: "Sync Seerr and Jellyseerr requests into per-user KefinTweaks watchlists."
+description: >
+  Server-side Jellyfin plugin that syncs each user's Seerr or Jellyseerr requests
+  into that same user's KefinTweaks watchlist using additive Jellyfin Likes
+  updates. Includes optional per-user tag-based watchlist inclusion.
+category: "General"
+owner: "NolanBecker"
+imageUrl: ""
+artifacts:
+  - "Jellyfin.Plugin.WatchlistRequestsSync.dll"
+  - "Jellyfin.Plugin.WatchlistRequestsSync.deps.json"
+  - "Microsoft.Extensions.Configuration.Abstractions.dll"
+  - "Microsoft.Extensions.Configuration.Binder.dll"
+  - "Microsoft.Extensions.DependencyInjection.Abstractions.dll"
+  - "Microsoft.Extensions.DependencyInjection.dll"
+  - "Microsoft.Extensions.Logging.Abstractions.dll"
+  - "Microsoft.Extensions.Logging.dll"
+  - "Microsoft.Extensions.Options.dll"
+  - "Microsoft.Extensions.Primitives.dll"
+changelog: >
+  Initial catalog-published release for Jellyfin 10.11.x.
