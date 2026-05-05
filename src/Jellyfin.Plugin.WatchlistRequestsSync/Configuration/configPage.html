@@ -1,42 +1,183 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Watchlist Requests Sync</title>
-</head>
-<body>
-    <div id="WatchlistRequestsSyncConfigPage" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
-        <div class="content-primary">
-            <h1>Watchlist Requests Sync</h1>
-            <form id="watchlistRequestsSyncForm">
-                <div class="sectionTitleContainer flex align-items-center">
-                    <h2>Global Settings</h2>
-                </div>
-                <label class="inputLabel inputLabelUnfocused" for="enablePlugin">Enable Plugin</label>
-                <input id="enablePlugin" is="emby-checkbox" type="checkbox" />
-                <label class="inputLabel inputLabelUnfocused" for="baseUrl">Seerr/Jellyseerr Base URL</label>
-                <input id="baseUrl" is="emby-input" />
-                <label class="inputLabel inputLabelUnfocused" for="apiKey">API Key</label>
-                <input id="apiKey" is="emby-input" type="password" />
-                <label class="inputLabel inputLabelUnfocused" for="syncIntervalMinutes">Sync Interval (minutes)</label>
-                <input id="syncIntervalMinutes" is="emby-input" type="number" min="15" />
-                <label class="inputLabel inputLabelUnfocused" for="dryRun">Dry Run</label>
-                <input id="dryRun" is="emby-checkbox" type="checkbox" />
-                <div class="buttonRow">
-                    <button is="emby-button" type="button" id="testConnectionButton" class="raised button-submit block">Test Connection</button>
-                    <button is="emby-button" type="button" id="previewSyncButton" class="raised button-submit block">Preview Sync</button>
-                    <button is="emby-button" type="button" id="runSyncButton" class="raised button-submit block">Run Sync Now</button>
-                </div>
-                <div class="sectionTitleContainer flex align-items-center">
-                    <h2>Per-User Settings</h2>
-                </div>
-                <div id="userSettingsContainer"></div>
-                <div class="sectionTitleContainer flex align-items-center">
-                    <h2>Last Status</h2>
-                </div>
-                <pre id="statusOutput" class="statusOutput"></pre>
-                <button is="emby-button" type="submit" class="raised button-submit block">Save</button>
-            </form>
-        </div>
+<div id="WatchlistRequestsSyncConfigPage" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+    <div class="content-primary">
+        <h1>Watchlist Requests Sync</h1>
+        <form id="watchlistRequestsSyncForm">
+            <div class="sectionTitleContainer flex align-items-center">
+                <h2>Global Settings</h2>
+            </div>
+            <label class="inputLabel inputLabelUnfocused" for="enablePlugin">Enable Plugin</label>
+            <input id="enablePlugin" is="emby-checkbox" type="checkbox" />
+            <label class="inputLabel inputLabelUnfocused" for="baseUrl">Seerr/Jellyseerr Base URL</label>
+            <input id="baseUrl" is="emby-input" />
+            <label class="inputLabel inputLabelUnfocused" for="apiKey">API Key</label>
+            <input id="apiKey" is="emby-input" type="password" />
+            <label class="inputLabel inputLabelUnfocused" for="syncIntervalMinutes">Sync Interval (minutes)</label>
+            <input id="syncIntervalMinutes" is="emby-input" type="number" min="15" />
+            <label class="inputLabel inputLabelUnfocused" for="dryRun">Dry Run</label>
+            <input id="dryRun" is="emby-checkbox" type="checkbox" />
+            <div class="buttonRow">
+                <button is="emby-button" type="button" id="testConnectionButton" class="raised button-submit block">Test Connection</button>
+                <button is="emby-button" type="button" id="previewSyncButton" class="raised button-submit block">Preview Sync</button>
+                <button is="emby-button" type="button" id="runSyncButton" class="raised button-submit block">Run Sync Now</button>
+            </div>
+            <div class="sectionTitleContainer flex align-items-center">
+                <h2>Per-User Settings</h2>
+            </div>
+            <div id="userSettingsContainer"></div>
+            <div class="sectionTitleContainer flex align-items-center">
+                <h2>Last Status</h2>
+            </div>
+            <pre id="statusOutput" class="statusOutput"></pre>
+            <button is="emby-button" type="submit" class="raised button-submit block">Save</button>
+        </form>
     </div>
-</body>
-</html>
+
+    <style>
+        #WatchlistRequestsSyncConfigPage .buttonRow {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin: 1rem 0;
+        }
+
+        #WatchlistRequestsSyncConfigPage .userCard {
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: grid;
+            gap: 0.5rem;
+        }
+
+        #WatchlistRequestsSyncConfigPage .statusOutput {
+            min-height: 12rem;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 1rem;
+            border-radius: 12px;
+            overflow: auto;
+        }
+    </style>
+
+    <script type="text/javascript">
+        (function () {
+            "use strict";
+
+            const pluginId = "7b2cef2e-d5ea-43e2-be8e-ab2070b2d18e";
+            const page = document.querySelector("#WatchlistRequestsSyncConfigPage");
+
+            if (!page) {
+                return;
+            }
+
+            function byId(id) {
+                return page.querySelector("#" + id);
+            }
+
+            function renderUsers(users) {
+                const container = byId("userSettingsContainer");
+                container.innerHTML = "";
+
+                users.forEach(function (user, index) {
+                    const wrapper = document.createElement("div");
+                    wrapper.className = "userCard";
+                    wrapper.innerHTML = [
+                        "<h3>" + user.jellyfinUserName + "</h3>",
+                        "<label>Enable Sync <input type='checkbox' data-field='isEnabled' " + (user.settings.isEnabled ? "checked" : "") + " /></label>",
+                        "<label>Seerr User ID <input type='text' data-field='seerrUserId' value='" + (user.settings.seerrUserId || "") + "' /></label>",
+                        "<label>Optional Media Tag <input type='text' data-field='mediaTag' value='" + (user.settings.mediaTag || "") + "' /></label>",
+                        "<label>Include Movies <input type='checkbox' data-field='includeMovies' " + (user.settings.includeMovies ? "checked" : "") + " /></label>",
+                        "<label>Include Series <input type='checkbox' data-field='includeSeries' " + (user.settings.includeSeries ? "checked" : "") + " /></label>",
+                        "<label>Include Pending <input type='checkbox' data-field='includePendingRequests' " + (user.settings.includePendingRequests ? "checked" : "") + " /></label>",
+                        "<label>Include Approved <input type='checkbox' data-field='includeApprovedRequests' " + (user.settings.includeApprovedRequests ? "checked" : "") + " /></label>",
+                        "<label>Include Available <input type='checkbox' data-field='includeAvailableRequests' " + (user.settings.includeAvailableRequests ? "checked" : "") + " /></label>"
+                    ].join("");
+                    wrapper.dataset.index = index.toString();
+                    container.appendChild(wrapper);
+                });
+            }
+
+            async function fetchUsers() {
+                const users = await ApiClient.getJSON(ApiClient.getUrl("Plugins/WatchlistRequestsSync/Users"));
+                renderUsers(users);
+                return users;
+            }
+
+            async function showStatus() {
+                const status = await ApiClient.getJSON(ApiClient.getUrl("Plugins/WatchlistRequestsSync/Status"));
+                byId("statusOutput").textContent = JSON.stringify(status, null, 2);
+            }
+
+            function captureUsers(existingUsers) {
+                const cards = Array.from(page.querySelectorAll("#userSettingsContainer .userCard"));
+                return cards.map(function (card) {
+                    const index = parseInt(card.dataset.index, 10);
+                    const original = existingUsers[index];
+                    const updated = JSON.parse(JSON.stringify(original.settings));
+
+                    card.querySelectorAll("[data-field]").forEach(function (field) {
+                        if (field.type === "checkbox") {
+                            updated[field.dataset.field] = field.checked;
+                        } else {
+                            updated[field.dataset.field] = field.value;
+                        }
+                    });
+
+                    updated.jellyfinUserId = original.jellyfinUserId;
+                    updated.jellyfinUserName = original.jellyfinUserName;
+                    return updated;
+                });
+            }
+
+            page.addEventListener("viewshow", async function () {
+                const config = await ApiClient.getPluginConfiguration(pluginId);
+                byId("enablePlugin").checked = config.isEnabled;
+                byId("baseUrl").value = config.seerrBaseUrl || "";
+                byId("apiKey").value = config.apiKey || "";
+                byId("syncIntervalMinutes").value = config.syncIntervalMinutes || 360;
+                byId("dryRun").checked = config.dryRun;
+                page._users = await fetchUsers();
+                await showStatus();
+            });
+
+            byId("watchlistRequestsSyncForm").addEventListener("submit", async function (event) {
+                event.preventDefault();
+                const config = await ApiClient.getPluginConfiguration(pluginId);
+                config.isEnabled = byId("enablePlugin").checked;
+                config.seerrBaseUrl = byId("baseUrl").value;
+                config.apiKey = byId("apiKey").value;
+                config.syncIntervalMinutes = parseInt(byId("syncIntervalMinutes").value || "360", 10);
+                config.dryRun = byId("dryRun").checked;
+                config.users = captureUsers(page._users || []);
+                await ApiClient.updatePluginConfiguration(pluginId, config);
+                Dashboard.processPluginConfigurationUpdateResult();
+            });
+
+            byId("testConnectionButton").addEventListener("click", async function () {
+                const result = await ApiClient.ajax({
+                    type: "POST",
+                    url: ApiClient.getUrl("Plugins/WatchlistRequestsSync/TestConnection"),
+                    dataType: "json"
+                });
+                byId("statusOutput").textContent = JSON.stringify(result, null, 2);
+            });
+
+            byId("previewSyncButton").addEventListener("click", async function () {
+                const result = await ApiClient.ajax({
+                    type: "POST",
+                    url: ApiClient.getUrl("Plugins/WatchlistRequestsSync/PreviewSync"),
+                    dataType: "json"
+                });
+                byId("statusOutput").textContent = JSON.stringify(result, null, 2);
+            });
+
+            byId("runSyncButton").addEventListener("click", async function () {
+                const result = await ApiClient.ajax({
+                    type: "POST",
+                    url: ApiClient.getUrl("Plugins/WatchlistRequestsSync/RunSync"),
+                    dataType: "json"
+                });
+                byId("statusOutput").textContent = JSON.stringify(result, null, 2);
+            });
+        })();
+    </script>
+</div>

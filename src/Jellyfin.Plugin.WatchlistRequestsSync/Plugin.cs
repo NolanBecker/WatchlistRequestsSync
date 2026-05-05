@@ -25,24 +25,12 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
     public IEnumerable<PluginPageInfo> GetPages()
     {
-        var assembly = GetType().GetTypeInfo().Assembly;
-
         return
         [
             new PluginPageInfo
             {
                 Name = Name,
-                EmbeddedResourcePath = $"{assembly.GetName().Name}.Configuration.configPage.html"
-            },
-            new PluginPageInfo
-            {
-                Name = $"{Name}.js",
-                EmbeddedResourcePath = $"{assembly.GetName().Name}.Configuration.configPage.js"
-            },
-            new PluginPageInfo
-            {
-                Name = $"{Name}.css",
-                EmbeddedResourcePath = $"{assembly.GetName().Name}.Configuration.configPage.css"
+                EmbeddedResourcePath = $"{GetType().GetTypeInfo().Assembly.GetName().Name}.Configuration.configPage.html"
             }
         ];
     }
