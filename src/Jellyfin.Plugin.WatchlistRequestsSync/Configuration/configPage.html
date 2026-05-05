@@ -218,6 +218,23 @@
                 });
             }
 
+            async function buildCurrentConfig() {
+                const config = await ApiClient.getPluginConfiguration(pluginId);
+                config.isEnabled = byId("enablePlugin").checked;
+                config.seerrBaseUrl = (byId("baseUrl").value || "").trim();
+                config.apiKey = byId("apiKey").value;
+                config.syncIntervalMinutes = parseInt(byId("syncIntervalMinutes").value || "360", 10);
+                config.dryRun = byId("dryRun").checked;
+                config.users = captureUsers(page._users || []);
+                return config;
+            }
+
+            async function persistCurrentConfig() {
+                const config = await buildCurrentConfig();
+                await ApiClient.updatePluginConfiguration(pluginId, config);
+                return config;
+            }
+
             async function loadPage() {
                 const config = await ApiClient.getPluginConfiguration(pluginId);
                 byId("enablePlugin").checked = !!config.isEnabled;
@@ -231,18 +248,12 @@
 
             form.addEventListener("submit", async function (event) {
                 event.preventDefault();
-                const config = await ApiClient.getPluginConfiguration(pluginId);
-                config.isEnabled = byId("enablePlugin").checked;
-                config.seerrBaseUrl = byId("baseUrl").value;
-                config.apiKey = byId("apiKey").value;
-                config.syncIntervalMinutes = parseInt(byId("syncIntervalMinutes").value || "360", 10);
-                config.dryRun = byId("dryRun").checked;
-                config.users = captureUsers(page._users || []);
-                await ApiClient.updatePluginConfiguration(pluginId, config);
+                await persistCurrentConfig();
                 Dashboard.processPluginConfigurationUpdateResult();
             });
 
             byId("testConnectionButton").addEventListener("click", async function () {
+                await persistCurrentConfig();
                 const result = await ApiClient.ajax({
                     type: "POST",
                     url: ApiClient.getUrl("Plugins/WatchlistRequestsSync/TestConnection"),
@@ -252,6 +263,7 @@
             });
 
             byId("previewSyncButton").addEventListener("click", async function () {
+                await persistCurrentConfig();
                 const result = await ApiClient.ajax({
                     type: "POST",
                     url: ApiClient.getUrl("Plugins/WatchlistRequestsSync/PreviewSync"),
@@ -261,6 +273,7 @@
             });
 
             byId("runSyncButton").addEventListener("click", async function () {
+                await persistCurrentConfig();
                 const result = await ApiClient.ajax({
                     type: "POST",
                     url: ApiClient.getUrl("Plugins/WatchlistRequestsSync/RunSync"),
