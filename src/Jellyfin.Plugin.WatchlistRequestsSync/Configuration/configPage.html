@@ -3,52 +3,137 @@
         <div class="content-primary">
             <h1>Watchlist Requests Sync</h1>
             <form id="watchlistRequestsSyncForm">
-                <div class="sectionTitleContainer flex align-items-center">
+                <section class="settingsSection">
                     <h2>Global Settings</h2>
-                </div>
-                <label class="inputLabel inputLabelUnfocused" for="enablePlugin">Enable Plugin</label>
-                <input id="enablePlugin" is="emby-checkbox" type="checkbox" />
-                <label class="inputLabel inputLabelUnfocused" for="baseUrl">Seerr/Jellyseerr Base URL</label>
-                <input id="baseUrl" is="emby-input" />
-                <label class="inputLabel inputLabelUnfocused" for="apiKey">API Key</label>
-                <input id="apiKey" is="emby-input" type="password" />
-                <label class="inputLabel inputLabelUnfocused" for="syncIntervalMinutes">Sync Interval (minutes)</label>
-                <input id="syncIntervalMinutes" is="emby-input" type="number" min="15" />
-                <label class="inputLabel inputLabelUnfocused" for="dryRun">Dry Run</label>
-                <input id="dryRun" is="emby-checkbox" type="checkbox" />
+
+                    <label class="checkboxRow" for="enablePlugin">
+                        <input id="enablePlugin" is="emby-checkbox" type="checkbox" />
+                        <span>Enable Plugin</span>
+                    </label>
+
+                    <div class="fieldGroup">
+                        <label for="baseUrl">Seerr/Jellyseerr Base URL</label>
+                        <input id="baseUrl" is="emby-input" />
+                    </div>
+
+                    <div class="fieldGroup">
+                        <label for="apiKey">API Key</label>
+                        <input id="apiKey" is="emby-input" type="password" />
+                    </div>
+
+                    <div class="fieldGroup">
+                        <label for="syncIntervalMinutes">Sync Interval (minutes)</label>
+                        <input id="syncIntervalMinutes" is="emby-input" type="number" min="15" />
+                    </div>
+
+                    <label class="checkboxRow" for="dryRun">
+                        <input id="dryRun" is="emby-checkbox" type="checkbox" />
+                        <span>Dry Run</span>
+                    </label>
+                </section>
+
                 <div class="buttonRow">
                     <button is="emby-button" type="button" id="testConnectionButton" class="raised button-submit block">Test Connection</button>
                     <button is="emby-button" type="button" id="previewSyncButton" class="raised button-submit block">Preview Sync</button>
                     <button is="emby-button" type="button" id="runSyncButton" class="raised button-submit block">Run Sync Now</button>
                 </div>
-                <div class="sectionTitleContainer flex align-items-center">
+
+                <section class="settingsSection">
                     <h2>Per-User Settings</h2>
-                </div>
-                <div id="userSettingsContainer"></div>
-                <div class="sectionTitleContainer flex align-items-center">
+                    <div id="userSettingsContainer"></div>
+                </section>
+
+                <section class="settingsSection">
                     <h2>Last Status</h2>
-                </div>
-                <pre id="statusOutput" class="statusOutput"></pre>
+                    <pre id="statusOutput" class="statusOutput"></pre>
+                </section>
+
                 <button is="emby-button" type="submit" class="raised button-submit block">Save</button>
             </form>
         </div>
     </div>
 
     <style>
+        #WatchlistRequestsSyncConfigPage .content-primary {
+            max-width: 880px;
+            margin: 0 auto;
+            padding-bottom: 3rem;
+        }
+
+        #WatchlistRequestsSyncConfigPage #watchlistRequestsSyncForm {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        #WatchlistRequestsSyncConfigPage .settingsSection {
+            display: grid;
+            gap: 1rem;
+            padding: 1.25rem;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        #WatchlistRequestsSyncConfigPage .settingsSection h2 {
+            margin: 0;
+        }
+
+        #WatchlistRequestsSyncConfigPage .fieldGroup {
+            display: grid;
+            gap: 0.4rem;
+        }
+
+        #WatchlistRequestsSyncConfigPage .fieldGroup label {
+            font-weight: 600;
+        }
+
+        #WatchlistRequestsSyncConfigPage .fieldGroup input {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        #WatchlistRequestsSyncConfigPage .checkboxRow {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 600;
+        }
+
         #WatchlistRequestsSyncConfigPage .buttonRow {
             display: flex;
             gap: 1rem;
             flex-wrap: wrap;
-            margin: 1rem 0;
+        }
+
+        #WatchlistRequestsSyncConfigPage .buttonRow button {
+            min-width: 10rem;
         }
 
         #WatchlistRequestsSyncConfigPage .userCard {
             border: 1px solid rgba(255, 255, 255, 0.15);
             border-radius: 12px;
-            padding: 1rem;
-            margin-bottom: 1rem;
+            padding: 1rem 1rem 1.25rem;
             display: grid;
-            gap: 0.5rem;
+            gap: 0.75rem;
+            background: rgba(0, 0, 0, 0.15);
+        }
+
+        #WatchlistRequestsSyncConfigPage .userCard h3 {
+            margin: 0;
+        }
+
+        #WatchlistRequestsSyncConfigPage .userCard label {
+            display: grid;
+            gap: 0.35rem;
+        }
+
+        #WatchlistRequestsSyncConfigPage .userCard input[type="text"] {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        #WatchlistRequestsSyncConfigPage .userCard input[type="checkbox"] {
+            justify-self: start;
         }
 
         #WatchlistRequestsSyncConfigPage .statusOutput {
@@ -57,6 +142,8 @@
             padding: 1rem;
             border-radius: 12px;
             overflow: auto;
+            white-space: pre-wrap;
+            margin: 0;
         }
     </style>
 
