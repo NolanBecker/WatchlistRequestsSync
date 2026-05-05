@@ -1,6 +1,6 @@
 # Watchlist Requests Sync
 
-Jellyfin server plugin for Jellyfin `10.11.x+` that syncs each user's Seerr or Jellyseerr requests into that same user's KefinTweaks watchlist using additive Jellyfin `Likes`.
+Jellyfin server plugin for Jellyfin `10.11.x` that syncs each user's Seerr or Jellyseerr requests into that same user's KefinTweaks watchlist using additive Jellyfin `Likes`.
 
 ## How it works
 
@@ -102,9 +102,10 @@ Manifest generation:
    - generate `manifest.json`
    - publish the manifest to `gh-pages`
 
-Important release rule:
+Important release rules:
 
 - The GitHub Release tag must exactly match `v<build.yaml version>`.
+- The Jellyfin package reference version and `targetAbi` should match the Jellyfin server line you are releasing for. For the current release track, this plugin targets the 10.11.0 ABI baseline.
 
 ## Safety notes
 
