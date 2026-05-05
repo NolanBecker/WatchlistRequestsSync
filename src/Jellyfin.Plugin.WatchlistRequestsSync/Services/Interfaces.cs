@@ -19,6 +19,8 @@ public interface ISeerrClient
 {
     Task<SeerrConnectionTestResult> TestConnectionAsync(CancellationToken cancellationToken);
 
+    Task<SeerrConnectionTestResult> TestConnectionAsync(string baseUrl, string apiKey, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<NormalizedSeerrRequest>> GetRequestsAsync(CancellationToken cancellationToken);
 }
 
@@ -49,6 +51,8 @@ public interface IKefinTweaksWatchlistAdapter
 public interface ISyncService
 {
     Task<SeerrConnectionTestResult> TestConnectionAsync(CancellationToken cancellationToken);
+
+    Task<SeerrConnectionTestResult> TestConnectionAsync(string baseUrl, string apiKey, CancellationToken cancellationToken);
 
     Task<SyncExecutionResult> PreviewAsync(CancellationToken cancellationToken);
 

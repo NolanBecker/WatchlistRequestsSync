@@ -20,18 +20,23 @@ public sealed class SeerrClient : ISeerrClient
     public async Task<SeerrConnectionTestResult> TestConnectionAsync(CancellationToken cancellationToken)
     {
         var configuration = _configurationAccessor.GetConfiguration();
-        var normalizedUrl = NormalizeBaseUrl(configuration.SeerrBaseUrl);
+        return await TestConnectionAsync(configuration.SeerrBaseUrl, configuration.ApiKey, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<SeerrConnectionTestResult> TestConnectionAsync(string baseUrl, string apiKey, CancellationToken cancellationToken)
+    {
+        var normalizedUrl = NormalizeBaseUrl(baseUrl);
         if (normalizedUrl is null)
         {
             return new SeerrConnectionTestResult
             {
                 IsSuccess = false,
                 Message = "Seerr/Jellyseerr base URL is invalid.",
-                NormalizedBaseUrl = configuration.SeerrBaseUrl
+                NormalizedBaseUrl = baseUrl
             };
         }
 
-        using var request = CreateRequest(HttpMethod.Get, normalizedUrl + "/api/v1/status", configuration.ApiKey);
+        using var request = CreateRequest(HttpMethod.Get, normalizedUrl + "/api/v1/status", apiKey);
         try
         {
             using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
@@ -130,6 +135,7 @@ public sealed class SeerrClient : ISeerrClient
 
     private static string? NormalizeBaseUrl(string input)
     {
+        input = input?.Trim() ?? string.Empty;
         if (!Uri.TryCreate(input, UriKind.Absolute, out var uri)
             || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
         {

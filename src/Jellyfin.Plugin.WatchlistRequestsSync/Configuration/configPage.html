@@ -253,10 +253,14 @@
             });
 
             byId("testConnectionButton").addEventListener("click", async function () {
-                await persistCurrentConfig();
                 const result = await ApiClient.ajax({
                     type: "POST",
                     url: ApiClient.getUrl("Plugins/WatchlistRequestsSync/TestConnection"),
+                    contentType: "application/json",
+                    data: JSON.stringify({
+                        seerrBaseUrl: (byId("baseUrl").value || "").trim(),
+                        apiKey: byId("apiKey").value || ""
+                    }),
                     dataType: "json"
                 });
                 byId("statusOutput").textContent = JSON.stringify(result, null, 2);

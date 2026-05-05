@@ -239,6 +239,15 @@ public sealed class SyncServiceTests
         public Task<SeerrConnectionTestResult> TestConnectionAsync(CancellationToken cancellationToken)
             => Task.FromResult(new SeerrConnectionTestResult { IsSuccess = true });
 
+        public Task<SeerrConnectionTestResult> TestConnectionAsync(string baseUrl, string apiKey, CancellationToken cancellationToken)
+            => _exception is null
+                ? Task.FromResult(new SeerrConnectionTestResult
+                {
+                    IsSuccess = !string.IsNullOrWhiteSpace(baseUrl),
+                    NormalizedBaseUrl = baseUrl
+                })
+                : Task.FromException<SeerrConnectionTestResult>(_exception);
+
         public Task<IReadOnlyList<NormalizedSeerrRequest>> GetRequestsAsync(CancellationToken cancellationToken)
             => _exception is null ? Task.FromResult(_requests) : Task.FromException<IReadOnlyList<NormalizedSeerrRequest>>(_exception);
     }

@@ -34,6 +34,9 @@ public sealed class SyncService : ISyncService
     public Task<SeerrConnectionTestResult> TestConnectionAsync(CancellationToken cancellationToken)
         => _seerrClient.TestConnectionAsync(cancellationToken);
 
+    public Task<SeerrConnectionTestResult> TestConnectionAsync(string baseUrl, string apiKey, CancellationToken cancellationToken)
+        => _seerrClient.TestConnectionAsync(baseUrl, apiKey, cancellationToken);
+
     public Task<SyncExecutionResult> PreviewAsync(CancellationToken cancellationToken)
         => RunCoreAsync(SyncRunMode.Preview, true, cancellationToken);
 

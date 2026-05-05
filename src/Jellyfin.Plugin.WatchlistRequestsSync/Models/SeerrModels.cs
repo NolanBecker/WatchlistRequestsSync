@@ -64,3 +64,10 @@ public sealed class SeerrConnectionTestResult
 
     public string NormalizedBaseUrl { get; set; } = string.Empty;
 }
+
+public sealed class SeerrConnectionTestRequest
+{
+    public string SeerrBaseUrl { get; set; } = string.Empty;
+
+    public string ApiKey { get; set; } = string.Empty;
+}
