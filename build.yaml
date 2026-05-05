@@ -1,6 +1,6 @@
 name: "Watchlist Requests Sync"
 guid: "7b2cef2e-d5ea-43e2-be8e-ab2070b2d18e"
-version: "1.0.3.0"
+version: "1.0.4.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sync Seerr and Jellyseerr requests into per-user KefinTweaks watchlists."
@@ -15,4 +15,4 @@ artifacts:
   - "Jellyfin.Plugin.WatchlistRequestsSync.dll"
   - "Jellyfin.Plugin.WatchlistRequestsSync.deps.json"
 changelog: >
-  Fix the Jellyfin plugin settings page rendering so the configuration view no longer opens blank.
+  Simplify the Jellyfin settings page markup and loading flow to address blank configuration screens.

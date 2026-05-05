@@ -1,35 +1,37 @@
-<div id="WatchlistRequestsSyncConfigPage" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
-    <div class="content-primary">
-        <h1>Watchlist Requests Sync</h1>
-        <form id="watchlistRequestsSyncForm">
-            <div class="sectionTitleContainer flex align-items-center">
-                <h2>Global Settings</h2>
-            </div>
-            <label class="inputLabel inputLabelUnfocused" for="enablePlugin">Enable Plugin</label>
-            <input id="enablePlugin" is="emby-checkbox" type="checkbox" />
-            <label class="inputLabel inputLabelUnfocused" for="baseUrl">Seerr/Jellyseerr Base URL</label>
-            <input id="baseUrl" is="emby-input" />
-            <label class="inputLabel inputLabelUnfocused" for="apiKey">API Key</label>
-            <input id="apiKey" is="emby-input" type="password" />
-            <label class="inputLabel inputLabelUnfocused" for="syncIntervalMinutes">Sync Interval (minutes)</label>
-            <input id="syncIntervalMinutes" is="emby-input" type="number" min="15" />
-            <label class="inputLabel inputLabelUnfocused" for="dryRun">Dry Run</label>
-            <input id="dryRun" is="emby-checkbox" type="checkbox" />
-            <div class="buttonRow">
-                <button is="emby-button" type="button" id="testConnectionButton" class="raised button-submit block">Test Connection</button>
-                <button is="emby-button" type="button" id="previewSyncButton" class="raised button-submit block">Preview Sync</button>
-                <button is="emby-button" type="button" id="runSyncButton" class="raised button-submit block">Run Sync Now</button>
-            </div>
-            <div class="sectionTitleContainer flex align-items-center">
-                <h2>Per-User Settings</h2>
-            </div>
-            <div id="userSettingsContainer"></div>
-            <div class="sectionTitleContainer flex align-items-center">
-                <h2>Last Status</h2>
-            </div>
-            <pre id="statusOutput" class="statusOutput"></pre>
-            <button is="emby-button" type="submit" class="raised button-submit block">Save</button>
-        </form>
+<div id="WatchlistRequestsSyncConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+    <div is="emby-scroller" class="scrollY">
+        <div class="content-primary">
+            <h1>Watchlist Requests Sync</h1>
+            <form id="watchlistRequestsSyncForm">
+                <div class="sectionTitleContainer flex align-items-center">
+                    <h2>Global Settings</h2>
+                </div>
+                <label class="inputLabel inputLabelUnfocused" for="enablePlugin">Enable Plugin</label>
+                <input id="enablePlugin" is="emby-checkbox" type="checkbox" />
+                <label class="inputLabel inputLabelUnfocused" for="baseUrl">Seerr/Jellyseerr Base URL</label>
+                <input id="baseUrl" is="emby-input" />
+                <label class="inputLabel inputLabelUnfocused" for="apiKey">API Key</label>
+                <input id="apiKey" is="emby-input" type="password" />
+                <label class="inputLabel inputLabelUnfocused" for="syncIntervalMinutes">Sync Interval (minutes)</label>
+                <input id="syncIntervalMinutes" is="emby-input" type="number" min="15" />
+                <label class="inputLabel inputLabelUnfocused" for="dryRun">Dry Run</label>
+                <input id="dryRun" is="emby-checkbox" type="checkbox" />
+                <div class="buttonRow">
+                    <button is="emby-button" type="button" id="testConnectionButton" class="raised button-submit block">Test Connection</button>
+                    <button is="emby-button" type="button" id="previewSyncButton" class="raised button-submit block">Preview Sync</button>
+                    <button is="emby-button" type="button" id="runSyncButton" class="raised button-submit block">Run Sync Now</button>
+                </div>
+                <div class="sectionTitleContainer flex align-items-center">
+                    <h2>Per-User Settings</h2>
+                </div>
+                <div id="userSettingsContainer"></div>
+                <div class="sectionTitleContainer flex align-items-center">
+                    <h2>Last Status</h2>
+                </div>
+                <pre id="statusOutput" class="statusOutput"></pre>
+                <button is="emby-button" type="submit" class="raised button-submit block">Save</button>
+            </form>
+        </div>
     </div>
 
     <style>
@@ -64,8 +66,9 @@
 
             const pluginId = "7b2cef2e-d5ea-43e2-be8e-ab2070b2d18e";
             const page = document.querySelector("#WatchlistRequestsSyncConfigPage");
+            const form = document.querySelector("#watchlistRequestsSyncForm");
 
-            if (!page) {
+            if (!page || !form) {
                 return;
             }
 
@@ -128,18 +131,18 @@
                 });
             }
 
-            page.addEventListener("viewshow", async function () {
+            async function loadPage() {
                 const config = await ApiClient.getPluginConfiguration(pluginId);
-                byId("enablePlugin").checked = config.isEnabled;
+                byId("enablePlugin").checked = !!config.isEnabled;
                 byId("baseUrl").value = config.seerrBaseUrl || "";
                 byId("apiKey").value = config.apiKey || "";
                 byId("syncIntervalMinutes").value = config.syncIntervalMinutes || 360;
-                byId("dryRun").checked = config.dryRun;
+                byId("dryRun").checked = !!config.dryRun;
                 page._users = await fetchUsers();
                 await showStatus();
-            });
+            }
 
-            byId("watchlistRequestsSyncForm").addEventListener("submit", async function (event) {
+            form.addEventListener("submit", async function (event) {
                 event.preventDefault();
                 const config = await ApiClient.getPluginConfiguration(pluginId);
                 config.isEnabled = byId("enablePlugin").checked;
@@ -177,6 +180,11 @@
                     dataType: "json"
                 });
                 byId("statusOutput").textContent = JSON.stringify(result, null, 2);
+            });
+
+            loadPage().catch(function (error) {
+                const message = error && error.message ? error.message : String(error);
+                byId("statusOutput").textContent = "Failed to load plugin configuration: " + message;
             });
         })();
     </script>
