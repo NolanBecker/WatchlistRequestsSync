@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.1.0",
+        "changelog": "Fix Jellyfin 10.11 compatibility metadata for repository installs.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/NolanBecker/WatchlistRequestsSync/releases/download/v1.0.1.0/Jellyfin.Plugin.WatchlistRequestsSync_1.0.1.0.zip",
+        "checksum": "69aa455378e3ac3d2bb8044a1b7a705c",
+        "timestamp": "2026-05-05T16:52:16.0000000+00:00"
+      },
+      {
         "version": "1.0.0.0",
         "changelog": "Initial catalog-published release for Jellyfin 10.11.x.",
         "targetAbi": "10.11.3.0",
