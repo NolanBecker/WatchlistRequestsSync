@@ -1,4 +1,4 @@
-<div id="WatchlistRequestsSyncConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+<div id="WatchlistRequestsSyncConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-button">
     <div is="emby-scroller" class="scrollY">
         <div class="content-primary">
             <h1>Watchlist Requests Sync</h1>
@@ -7,27 +7,27 @@
                     <h2>Global Settings</h2>
 
                     <label class="checkboxRow" for="enablePlugin">
-                        <input id="enablePlugin" is="emby-checkbox" type="checkbox" />
+                        <input id="enablePlugin" type="checkbox" />
                         <span>Enable Plugin</span>
                     </label>
 
                     <div class="fieldGroup">
                         <label for="baseUrl">Seerr/Jellyseerr Base URL</label>
-                        <input id="baseUrl" is="emby-input" />
+                        <input id="baseUrl" type="text" autocomplete="off" spellcheck="false" />
                     </div>
 
                     <div class="fieldGroup">
                         <label for="apiKey">API Key</label>
-                        <input id="apiKey" is="emby-input" type="password" />
+                        <input id="apiKey" type="password" autocomplete="off" spellcheck="false" />
                     </div>
 
                     <div class="fieldGroup">
                         <label for="syncIntervalMinutes">Sync Interval (minutes)</label>
-                        <input id="syncIntervalMinutes" is="emby-input" type="number" min="15" />
+                        <input id="syncIntervalMinutes" type="number" min="15" />
                     </div>
 
                     <label class="checkboxRow" for="dryRun">
-                        <input id="dryRun" is="emby-checkbox" type="checkbox" />
+                        <input id="dryRun" type="checkbox" />
                         <span>Dry Run</span>
                     </label>
                 </section>
@@ -48,7 +48,7 @@
                     <pre id="statusOutput" class="statusOutput"></pre>
                 </section>
 
-                <button is="emby-button" type="submit" class="raised button-submit block">Save</button>
+                <button is="emby-button" type="button" id="saveButton" class="raised button-submit block">Save</button>
             </form>
         </div>
     </div>
@@ -90,6 +90,12 @@
         #WatchlistRequestsSyncConfigPage .fieldGroup input {
             width: 100%;
             box-sizing: border-box;
+            min-height: 2.5rem;
+            padding: 0.55rem 0.75rem;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: rgba(255, 255, 255, 0.06);
+            color: inherit;
         }
 
         #WatchlistRequestsSyncConfigPage .checkboxRow {
@@ -130,6 +136,12 @@
         #WatchlistRequestsSyncConfigPage .userCard input[type="text"] {
             width: 100%;
             box-sizing: border-box;
+            min-height: 2.25rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: rgba(255, 255, 255, 0.06);
+            color: inherit;
         }
 
         #WatchlistRequestsSyncConfigPage .userCard input[type="checkbox"] {
@@ -246,9 +258,9 @@
                 await showStatus();
             }
 
-            form.addEventListener("submit", async function (event) {
-                event.preventDefault();
+            byId("saveButton").addEventListener("click", async function () {
                 await persistCurrentConfig();
+                byId("statusOutput").textContent = "Configuration saved.";
                 Dashboard.processPluginConfigurationUpdateResult();
             });
 
