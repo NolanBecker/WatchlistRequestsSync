@@ -243,7 +243,12 @@
 
             async function persistCurrentConfig() {
                 const config = await buildCurrentConfig();
-                await ApiClient.updatePluginConfiguration(pluginId, config);
+                await ApiClient.ajax({
+                    type: "POST",
+                    url: ApiClient.getUrl("Plugins/" + pluginId + "/Configuration"),
+                    contentType: "application/json",
+                    data: JSON.stringify(config)
+                });
                 return config;
             }
 
@@ -259,8 +264,10 @@
             }
 
             byId("saveButton").addEventListener("click", async function () {
-                await persistCurrentConfig();
+                const savedConfig = await persistCurrentConfig();
                 byId("statusOutput").textContent = "Configuration saved.";
+                byId("baseUrl").value = savedConfig.seerrBaseUrl || "";
+                byId("apiKey").value = savedConfig.apiKey || "";
                 Dashboard.processPluginConfigurationUpdateResult();
             });
 
