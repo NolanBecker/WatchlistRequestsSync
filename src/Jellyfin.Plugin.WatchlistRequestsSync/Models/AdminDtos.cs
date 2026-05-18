@@ -10,6 +10,8 @@ public sealed class PluginStatusDto
 
     public bool CompatibilityOk { get; set; }
 
+    public string CompatibilitySeverity { get; set; } = string.Empty;
+
     public string CompatibilityMessage { get; set; } = string.Empty;
 }
 

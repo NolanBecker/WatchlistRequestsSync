@@ -12,16 +12,7 @@ public sealed class KefinTweaksWatchlistAdapter : IKefinTweaksWatchlistAdapter
     }
 
     public async Task<CompatibilityResult> CheckCompatibilityAsync(CancellationToken cancellationToken)
-    {
-        var installed = await _jellyfinApi.IsKefinTweaksInstalledAsync(cancellationToken).ConfigureAwait(false);
-        return new CompatibilityResult
-        {
-            IsCompatible = installed,
-            Message = installed
-                ? "KefinTweaks was detected. Watchlist writes will use Jellyfin Likes as documented by KefinTweaks."
-                : "KefinTweaks was not detected. No watchlist writes will be attempted."
-        };
-    }
+        => await _jellyfinApi.GetKefinTweaksCompatibilityAsync(cancellationToken).ConfigureAwait(false);
 
     public async Task<IReadOnlySet<string>> GetWatchlistItemIdsAsync(string jellyfinUserId, CancellationToken cancellationToken)
     {

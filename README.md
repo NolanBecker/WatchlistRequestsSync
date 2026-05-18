@@ -111,7 +111,7 @@ Important release rules:
 
 - No delete operations are implemented.
 - No watchlist rebuild path exists.
-- If KefinTweaks cannot be detected, the plugin surfaces a compatibility error and skips writes.
+- If KefinTweaks cannot be positively detected from plugin metadata, the plugin surfaces a warning and continues because the integration uses Jellyfin `Likes`.
 - Seerr/Jellyseerr failures are surfaced as non-destructive sync errors.
 
 ## Notes

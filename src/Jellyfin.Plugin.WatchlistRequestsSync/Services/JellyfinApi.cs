@@ -115,8 +115,52 @@ public sealed class JellyfinApi : IJellyfinApi
         return Task.CompletedTask;
     }
 
-    public Task<bool> IsKefinTweaksInstalledAsync(CancellationToken cancellationToken)
-        => Task.FromResult((_pluginManager.Plugins ?? []).Any(static plugin => string.Equals(plugin.Name, "KefinTweaks", StringComparison.OrdinalIgnoreCase)));
+    public Task<CompatibilityResult> GetKefinTweaksCompatibilityAsync(CancellationToken cancellationToken)
+    {
+        var plugins = (_pluginManager.Plugins ?? []).ToList();
+
+        static bool Matches(object plugin)
+        {
+            var type = plugin.GetType();
+            var textCandidates = new[]
+            {
+                type.GetProperty("Name")?.GetValue(plugin)?.ToString(),
+                type.GetProperty("Description")?.GetValue(plugin)?.ToString(),
+                type.GetProperty("AssemblyFileName")?.GetValue(plugin)?.ToString(),
+                type.GetProperty("DataFolderPath")?.GetValue(plugin)?.ToString(),
+                type.FullName,
+                type.Assembly.GetName().Name
+            };
+
+            return textCandidates.Any(static value =>
+                !string.IsNullOrWhiteSpace(value)
+                && value.Contains("kefin", StringComparison.OrdinalIgnoreCase));
+        }
+
+        var matchedPlugin = plugins.FirstOrDefault(Matches);
+        if (matchedPlugin is not null)
+        {
+            var matchedName = matchedPlugin.GetType().GetProperty("Name")?.GetValue(matchedPlugin)?.ToString()
+                ?? matchedPlugin.GetType().Assembly.GetName().Name
+                ?? "KefinTweaks-compatible plugin";
+
+            return Task.FromResult(new CompatibilityResult
+            {
+                IsCompatible = true,
+                Severity = CompatibilitySeverity.Ok,
+                Message = $"KefinTweaks detected via plugin metadata: {matchedName}. Watchlist writes will use Jellyfin Likes as documented by KefinTweaks."
+            });
+        }
+
+        // KefinTweaks is a front-end plugin, and its Watchlist is documented to use Jellyfin Likes.
+        // Positive server-side plugin detection is helpful but not required for additive Likes-based sync.
+        return Task.FromResult(new CompatibilityResult
+        {
+            IsCompatible = true,
+            Severity = CompatibilitySeverity.Warning,
+            Message = "KefinTweaks was not positively detected from loaded plugin metadata, but sync will proceed because the Watchlist integration uses Jellyfin Likes."
+        });
+    }
 
     private User GetUser(string jellyfinUserId)
         => _userManager.GetUserById(Guid.Parse(jellyfinUserId))

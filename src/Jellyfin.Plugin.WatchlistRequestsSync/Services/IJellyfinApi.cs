@@ -16,5 +16,5 @@ public interface IJellyfinApi
 
     Task SetItemLikeAsync(string jellyfinUserId, string jellyfinItemId, CancellationToken cancellationToken);
 
-    Task<bool> IsKefinTweaksInstalledAsync(CancellationToken cancellationToken);
+    Task<CompatibilityResult> GetKefinTweaksCompatibilityAsync(CancellationToken cancellationToken);
 }

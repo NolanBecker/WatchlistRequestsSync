@@ -90,6 +90,31 @@ public sealed class SyncServiceTests
     }
 
     [Fact]
+    public async Task WarningCompatibility_DoesNotBlockSync()
+    {
+        var adapter = new FakeWatchlistAdapter
+        {
+            Compatibility = new CompatibilityResult
+            {
+                IsCompatible = true,
+                Severity = CompatibilitySeverity.Warning,
+                Message = "warning"
+            }
+        };
+
+        var service = CreateSyncService(
+            requests: [CreateRequest(101, 7, "user-a")],
+            mediaMatchResults: new Dictionary<long, MediaMatchResult> { [101] = Match("item-1", "Inception") },
+            adapter: adapter);
+
+        var result = await service.RunAsync(SyncRunMode.Manual, CancellationToken.None);
+
+        Assert.True(result.CompatibilityOk);
+        Assert.Equal("warning", result.CompatibilityMessage);
+        Assert.Single(result.Users[0].AddedItems);
+    }
+
+    [Fact]
     public async Task ProviderIdMatcher_PrefersProviderMatch()
     {
         var api = new FakeJellyfinApi
@@ -283,8 +308,10 @@ public sealed class SyncServiceTests
 
         public List<SyncCandidate> AddCalls { get; } = [];
 
+        public CompatibilityResult Compatibility { get; set; } = new() { IsCompatible = true, Severity = CompatibilitySeverity.Ok, Message = "ok" };
+
         public Task<CompatibilityResult> CheckCompatibilityAsync(CancellationToken cancellationToken)
-            => Task.FromResult(new CompatibilityResult { IsCompatible = true, Message = "ok" });
+            => Task.FromResult(Compatibility);
 
         public Task<IReadOnlySet<string>> GetWatchlistItemIdsAsync(string jellyfinUserId, CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlySet<string>>(new HashSet<string>(_watchlistItemIds, StringComparer.OrdinalIgnoreCase));
@@ -331,6 +358,12 @@ public sealed class SyncServiceTests
 
         public Task SetItemLikeAsync(string jellyfinUserId, string jellyfinItemId, CancellationToken cancellationToken) => Task.CompletedTask;
 
-        public Task<bool> IsKefinTweaksInstalledAsync(CancellationToken cancellationToken) => Task.FromResult(true);
+        public Task<CompatibilityResult> GetKefinTweaksCompatibilityAsync(CancellationToken cancellationToken)
+            => Task.FromResult(new CompatibilityResult
+            {
+                IsCompatible = true,
+                Severity = CompatibilitySeverity.Ok,
+                Message = "detected"
+            });
     }
 }

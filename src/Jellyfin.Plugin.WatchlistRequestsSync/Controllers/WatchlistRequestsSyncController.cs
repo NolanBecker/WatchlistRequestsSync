@@ -92,6 +92,7 @@ public sealed class WatchlistRequestsSyncController : ControllerBase
             IsEnabled = _configurationAccessor.GetConfiguration().IsEnabled,
             LastSyncUtc = state.LastSyncUtc?.ToString("O") ?? string.Empty,
             CompatibilityOk = compatibility.IsCompatible,
+            CompatibilitySeverity = compatibility.Severity.ToString(),
             CompatibilityMessage = compatibility.Message
         });
     }

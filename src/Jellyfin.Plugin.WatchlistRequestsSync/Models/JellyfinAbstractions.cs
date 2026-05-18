@@ -26,5 +26,14 @@ public sealed class CompatibilityResult
 {
     public bool IsCompatible { get; set; }
 
+    public CompatibilitySeverity Severity { get; set; } = CompatibilitySeverity.Ok;
+
     public string Message { get; set; } = string.Empty;
+}
+
+public enum CompatibilitySeverity
+{
+    Ok,
+    Warning,
+    Error
 }
