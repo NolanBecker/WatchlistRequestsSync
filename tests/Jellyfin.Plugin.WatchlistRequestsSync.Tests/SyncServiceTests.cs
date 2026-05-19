@@ -239,6 +239,9 @@ public sealed class SyncServiceTests
     {
         var configuration = new PluginConfiguration
         {
+            IsEnabled = true,
+            SeerrBaseUrl = "http://seerr.local",
+            ApiKey = "test-api-key",
             Users =
             [
                 new UserSyncSettings
