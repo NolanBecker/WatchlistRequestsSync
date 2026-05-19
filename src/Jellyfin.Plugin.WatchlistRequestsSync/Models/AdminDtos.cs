@@ -23,3 +23,8 @@ public sealed class UserSettingsDto
 
     public UserSyncSettings Settings { get; set; } = new();
 }
+
+public sealed class ManualSyncRequest
+{
+    public PluginConfiguration Configuration { get; set; } = new();
+}

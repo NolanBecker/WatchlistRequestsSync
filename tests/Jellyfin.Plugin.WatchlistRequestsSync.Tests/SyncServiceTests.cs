@@ -90,6 +90,68 @@ public sealed class SyncServiceTests
     }
 
     [Fact]
+    public async Task Preview_UsesProvidedConfigurationWhenPersistedConfigIsStale()
+    {
+        var service = CreateSyncService(
+            requests: [CreateRequest(101, 7, "user-a")],
+            mediaMatchResults: new Dictionary<long, MediaMatchResult> { [101] = Match("item-1", "Inception") },
+            configurationOverride: config => config.SeerrBaseUrl = string.Empty);
+
+        var result = await service.PreviewAsync(new PluginConfiguration
+        {
+            IsEnabled = true,
+            SeerrBaseUrl = "http://seerr.local",
+            ApiKey = "key",
+            Users =
+            [
+                new UserSyncSettings
+                {
+                    JellyfinUserId = "user-a",
+                    JellyfinUserName = "User A",
+                    IsEnabled = true,
+                    SeerrUserId = "7",
+                    MediaTag = "watchlist-a"
+                }
+            ]
+        }, CancellationToken.None);
+
+        Assert.Empty(result.Errors);
+        Assert.Single(result.Users[0].AddedItems);
+    }
+
+    [Fact]
+    public async Task ManualRun_UsesProvidedConfigurationWhenPersistedConfigIsStale()
+    {
+        var fakeAdapter = new FakeWatchlistAdapter();
+        var service = CreateSyncService(
+            requests: [CreateRequest(101, 7, "user-a")],
+            mediaMatchResults: new Dictionary<long, MediaMatchResult> { [101] = Match("item-1", "Inception") },
+            adapter: fakeAdapter,
+            configurationOverride: config => config.SeerrBaseUrl = string.Empty);
+
+        var result = await service.RunAsync(SyncRunMode.Manual, new PluginConfiguration
+        {
+            IsEnabled = true,
+            SeerrBaseUrl = "http://seerr.local",
+            ApiKey = "key",
+            Users =
+            [
+                new UserSyncSettings
+                {
+                    JellyfinUserId = "user-a",
+                    JellyfinUserName = "User A",
+                    IsEnabled = true,
+                    SeerrUserId = "7",
+                    MediaTag = "watchlist-a"
+                }
+            ]
+        }, CancellationToken.None);
+
+        Assert.Empty(result.Errors);
+        Assert.Single(fakeAdapter.AddCalls);
+    }
+
+    [Fact]
     public async Task WarningCompatibility_DoesNotBlockSync()
     {
         var adapter = new FakeWatchlistAdapter
@@ -275,6 +337,13 @@ public sealed class SyncServiceTests
 
         public Task<IReadOnlyList<NormalizedSeerrRequest>> GetRequestsAsync(CancellationToken cancellationToken)
             => _exception is null ? Task.FromResult(_requests) : Task.FromException<IReadOnlyList<NormalizedSeerrRequest>>(_exception);
+
+        public Task<IReadOnlyList<NormalizedSeerrRequest>> GetRequestsAsync(string baseUrl, string apiKey, CancellationToken cancellationToken)
+            => _exception is not null
+                ? Task.FromException<IReadOnlyList<NormalizedSeerrRequest>>(_exception)
+                : string.IsNullOrWhiteSpace(baseUrl)
+                    ? Task.FromException<IReadOnlyList<NormalizedSeerrRequest>>(new InvalidOperationException("Seerr/Jellyseerr base URL is invalid."))
+                    : Task.FromResult(_requests);
     }
 
     private sealed class FakeMediaMatcher : IJellyfinMediaMatcher

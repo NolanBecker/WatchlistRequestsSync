@@ -63,10 +63,15 @@ public sealed class SeerrClient : ISeerrClient
     public async Task<IReadOnlyList<NormalizedSeerrRequest>> GetRequestsAsync(CancellationToken cancellationToken)
     {
         var configuration = _configurationAccessor.GetConfiguration();
-        var normalizedUrl = NormalizeBaseUrl(configuration.SeerrBaseUrl)
+        return await GetRequestsAsync(configuration.SeerrBaseUrl, configuration.ApiKey, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<NormalizedSeerrRequest>> GetRequestsAsync(string baseUrl, string apiKey, CancellationToken cancellationToken)
+    {
+        var normalizedUrl = NormalizeBaseUrl(baseUrl)
             ?? throw new InvalidOperationException("Seerr/Jellyseerr base URL is invalid.");
 
-        using var request = CreateRequest(HttpMethod.Get, normalizedUrl + "/api/v1/request?take=500&skip=0&sort=added", configuration.ApiKey);
+        using var request = CreateRequest(HttpMethod.Get, normalizedUrl + "/api/v1/request?take=500&skip=0&sort=added", apiKey);
         using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 

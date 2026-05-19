@@ -22,6 +22,8 @@ public interface ISeerrClient
     Task<SeerrConnectionTestResult> TestConnectionAsync(string baseUrl, string apiKey, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<NormalizedSeerrRequest>> GetRequestsAsync(CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<NormalizedSeerrRequest>> GetRequestsAsync(string baseUrl, string apiKey, CancellationToken cancellationToken);
 }
 
 public interface IUserMappingService
@@ -56,5 +58,9 @@ public interface ISyncService
 
     Task<SyncExecutionResult> PreviewAsync(CancellationToken cancellationToken);
 
+    Task<SyncExecutionResult> PreviewAsync(PluginConfiguration configuration, CancellationToken cancellationToken);
+
     Task<SyncExecutionResult> RunAsync(SyncRunMode mode, CancellationToken cancellationToken);
+
+    Task<SyncExecutionResult> RunAsync(SyncRunMode mode, PluginConfiguration configuration, CancellationToken cancellationToken);
 }

@@ -252,6 +252,20 @@
                 return config;
             }
 
+            async function executeManualSync(endpoint) {
+                const config = await buildCurrentConfig();
+                const result = await ApiClient.ajax({
+                    type: "POST",
+                    url: ApiClient.getUrl("Plugins/WatchlistRequestsSync/" + endpoint),
+                    contentType: "application/json",
+                    data: JSON.stringify({
+                        configuration: config
+                    }),
+                    dataType: "json"
+                });
+                byId("statusOutput").textContent = JSON.stringify(result, null, 2);
+            }
+
             async function loadPage() {
                 const config = await ApiClient.getPluginConfiguration(pluginId);
                 byId("enablePlugin").checked = !!config.isEnabled;
@@ -286,23 +300,11 @@
             });
 
             byId("previewSyncButton").addEventListener("click", async function () {
-                await persistCurrentConfig();
-                const result = await ApiClient.ajax({
-                    type: "POST",
-                    url: ApiClient.getUrl("Plugins/WatchlistRequestsSync/PreviewSync"),
-                    dataType: "json"
-                });
-                byId("statusOutput").textContent = JSON.stringify(result, null, 2);
+                await executeManualSync("PreviewSync");
             });
 
             byId("runSyncButton").addEventListener("click", async function () {
-                await persistCurrentConfig();
-                const result = await ApiClient.ajax({
-                    type: "POST",
-                    url: ApiClient.getUrl("Plugins/WatchlistRequestsSync/RunSync"),
-                    dataType: "json"
-                });
-                byId("statusOutput").textContent = JSON.stringify(result, null, 2);
+                await executeManualSync("RunSync");
             });
 
             loadPage().catch(function (error) {

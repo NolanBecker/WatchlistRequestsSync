@@ -43,12 +43,16 @@ public sealed class WatchlistRequestsSyncController : ControllerBase
     }
 
     [HttpPost("PreviewSync")]
-    public async Task<ActionResult<SyncExecutionResult>> PreviewSync(CancellationToken cancellationToken)
-        => Ok(await _syncService.PreviewAsync(cancellationToken).ConfigureAwait(false));
+    public async Task<ActionResult<SyncExecutionResult>> PreviewSync([FromBody] ManualSyncRequest? request, CancellationToken cancellationToken)
+        => Ok(request?.Configuration is not null
+            ? await _syncService.PreviewAsync(request.Configuration, cancellationToken).ConfigureAwait(false)
+            : await _syncService.PreviewAsync(cancellationToken).ConfigureAwait(false));
 
     [HttpPost("RunSync")]
-    public async Task<ActionResult<SyncExecutionResult>> RunSync(CancellationToken cancellationToken)
-        => Ok(await _syncService.RunAsync(Configuration.SyncRunMode.Manual, cancellationToken).ConfigureAwait(false));
+    public async Task<ActionResult<SyncExecutionResult>> RunSync([FromBody] ManualSyncRequest? request, CancellationToken cancellationToken)
+        => Ok(request?.Configuration is not null
+            ? await _syncService.RunAsync(Configuration.SyncRunMode.Manual, request.Configuration, cancellationToken).ConfigureAwait(false)
+            : await _syncService.RunAsync(Configuration.SyncRunMode.Manual, cancellationToken).ConfigureAwait(false));
 
     [HttpGet("Users")]
     public async Task<ActionResult<IReadOnlyList<UserSettingsDto>>> GetUsers(CancellationToken cancellationToken)

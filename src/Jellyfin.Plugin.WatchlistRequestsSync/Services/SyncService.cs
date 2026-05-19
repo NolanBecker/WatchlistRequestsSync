@@ -38,17 +38,22 @@ public sealed class SyncService : ISyncService
         => _seerrClient.TestConnectionAsync(baseUrl, apiKey, cancellationToken);
 
     public Task<SyncExecutionResult> PreviewAsync(CancellationToken cancellationToken)
-        => RunCoreAsync(SyncRunMode.Preview, true, cancellationToken);
+        => RunCoreAsync(SyncRunMode.Preview, _configurationAccessor.GetConfiguration(), true, cancellationToken);
+
+    public Task<SyncExecutionResult> PreviewAsync(PluginConfiguration configuration, CancellationToken cancellationToken)
+        => RunCoreAsync(SyncRunMode.Preview, configuration, true, cancellationToken);
 
     public Task<SyncExecutionResult> RunAsync(SyncRunMode mode, CancellationToken cancellationToken)
     {
         var configuration = _configurationAccessor.GetConfiguration();
-        return RunCoreAsync(mode, configuration.DryRun || mode == SyncRunMode.Preview, cancellationToken);
+        return RunCoreAsync(mode, configuration, configuration.DryRun || mode == SyncRunMode.Preview, cancellationToken);
     }
 
-    private async Task<SyncExecutionResult> RunCoreAsync(SyncRunMode mode, bool dryRun, CancellationToken cancellationToken)
+    public Task<SyncExecutionResult> RunAsync(SyncRunMode mode, PluginConfiguration configuration, CancellationToken cancellationToken)
+        => RunCoreAsync(mode, configuration, configuration.DryRun || mode == SyncRunMode.Preview, cancellationToken);
+
+    private async Task<SyncExecutionResult> RunCoreAsync(SyncRunMode mode, PluginConfiguration configuration, bool dryRun, CancellationToken cancellationToken)
     {
-        var configuration = _configurationAccessor.GetConfiguration();
         var result = new SyncExecutionResult
         {
             IsDryRun = dryRun,
@@ -75,7 +80,7 @@ public sealed class SyncService : ISyncService
         IReadOnlyList<NormalizedSeerrRequest> requests;
         try
         {
-            requests = await _seerrClient.GetRequestsAsync(cancellationToken).ConfigureAwait(false);
+            requests = await _seerrClient.GetRequestsAsync(configuration.SeerrBaseUrl, configuration.ApiKey, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -99,7 +104,7 @@ public sealed class SyncService : ISyncService
             };
 
             var watchlistItems = await _watchlistAdapter.GetWatchlistItemIdsAsync(userSettings.JellyfinUserId, cancellationToken).ConfigureAwait(false);
-            var requestCandidates = await GetRequestCandidatesAsync(userSettings, requests, explicitMappings, perUser, cancellationToken).ConfigureAwait(false);
+            var requestCandidates = await GetRequestCandidatesAsync(userSettings, configuration, requests, explicitMappings, perUser, cancellationToken).ConfigureAwait(false);
             var tagCandidates = await _tagSyncService.GetTagCandidatesAsync(userSettings, cancellationToken).ConfigureAwait(false);
 
             perUser.RequestCandidates.AddRange(requestCandidates);
@@ -145,6 +150,7 @@ public sealed class SyncService : ISyncService
 
     private async Task<IReadOnlyList<SyncCandidate>> GetRequestCandidatesAsync(
         UserSyncSettings userSettings,
+        PluginConfiguration configuration,
         IReadOnlyList<NormalizedSeerrRequest> allRequests,
         IReadOnlyDictionary<long, string> explicitMappings,
         PerUserSyncReport perUser,
@@ -152,7 +158,7 @@ public sealed class SyncService : ISyncService
     {
         var includedRequests = allRequests
             .Where(request => string.Equals(_userMappingService.MapSeerrRequestToJellyfinUser(request, explicitMappings), userSettings.JellyfinUserId, StringComparison.OrdinalIgnoreCase))
-            .Where(request => ShouldIncludeRequest(userSettings, request))
+            .Where(request => ShouldIncludeRequest(configuration, userSettings, request))
             .ToList();
 
         var candidates = new List<SyncCandidate>();
@@ -184,7 +190,7 @@ public sealed class SyncService : ISyncService
         return candidates;
     }
 
-    private bool ShouldIncludeRequest(UserSyncSettings userSettings, NormalizedSeerrRequest request)
+    private static bool ShouldIncludeRequest(PluginConfiguration configuration, UserSyncSettings userSettings, NormalizedSeerrRequest request)
     {
         if (request.MediaType == RequestMediaType.Movie && !userSettings.IncludeMovies)
         {
@@ -211,7 +217,7 @@ public sealed class SyncService : ISyncService
             return false;
         }
 
-        var partialMode = _configurationAccessor.GetConfiguration().PartialAvailabilityMode;
+        var partialMode = configuration.PartialAvailabilityMode;
         if (request.AvailabilityState == RequestAvailabilityState.PartiallyAvailable)
         {
             return partialMode switch
