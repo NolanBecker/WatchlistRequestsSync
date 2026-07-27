@@ -1,6 +1,7 @@
 using Jellyfin.Plugin.WatchlistRequestsSync.Models;
 using Jellyfin.Plugin.WatchlistRequestsSync.Services;
 using MediaBrowser.Controller.Net;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -29,6 +30,23 @@ public sealed class WatchlistRequestsSyncController : ControllerBase
         _stateStore = stateStore;
         _watchlistAdapter = watchlistAdapter;
         _jellyfinApi = jellyfinApi;
+    }
+
+    [HttpGet("Configuration")]
+    public ActionResult<Configuration.PluginConfiguration> GetConfiguration()
+        => Ok(_configurationAccessor.GetConfiguration());
+
+    [HttpPost("Configuration")]
+    public ActionResult<Configuration.PluginConfiguration> UpdateConfiguration([FromBody] Configuration.PluginConfiguration configuration)
+    {
+        if (Plugin.Instance is null)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, "Plugin instance is not available.");
+        }
+
+        Plugin.Instance.UpdateConfiguration(configuration);
+        Plugin.Instance.SaveConfiguration(configuration);
+        return Ok(configuration);
     }
 
     [HttpPost("TestConnection")]

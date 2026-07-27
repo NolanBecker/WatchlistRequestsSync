@@ -188,6 +188,44 @@
                 return page.querySelector("#" + id);
             }
 
+            function createDefaultConfig() {
+                return {
+                    isEnabled: true,
+                    sonarrBaseUrl: "",
+                    sonarrApiKey: "",
+                    sonarrTags: "",
+                    radarrBaseUrl: "",
+                    radarrApiKey: "",
+                    radarrTags: "",
+                    syncIntervalMinutes: 360,
+                    dryRun: false,
+                    users: []
+                };
+            }
+
+            async function describeError(error) {
+                if (error && typeof error === "object") {
+                    if (typeof error.text === "function") {
+                        try {
+                            const text = await error.text();
+                            const body = text ? text.trim() : "";
+                            const prefix = error.status ? ("HTTP " + error.status) : "HTTP error";
+                            return body ? (prefix + ": " + body) : prefix;
+                        } catch (readError) {
+                            if (error.status) {
+                                return "HTTP " + error.status;
+                            }
+                        }
+                    }
+
+                    if (error.message) {
+                        return error.message;
+                    }
+                }
+
+                return String(error);
+            }
+
             function renderUsers(users) {
                 const container = byId("userSettingsContainer");
                 container.innerHTML = "";
@@ -294,6 +332,16 @@
                 return normalizeCoreUsers([currentUser], existingUsersById);
             }
 
+            async function getPluginConfiguration() {
+                const config = await ApiClient.ajax({
+                    type: "GET",
+                    url: ApiClient.getUrl("Plugins/WatchlistRequestsSync/Configuration"),
+                    dataType: "json"
+                });
+
+                return Object.assign(createDefaultConfig(), config || {});
+            }
+
             function captureUsers(existingUsers) {
                 const cards = Array.from(page.querySelectorAll("#userSettingsContainer .userCard"));
                 return cards.map(function (card) {
@@ -344,7 +392,7 @@
             }
 
             async function buildCurrentConfig() {
-                const config = await ApiClient.getPluginConfiguration(pluginId);
+                const config = Object.assign(createDefaultConfig(), page._config || {});
                 config.isEnabled = byId("enablePlugin").checked;
                 config.sonarrBaseUrl = (byId("sonarrBaseUrl").value || "").trim();
                 config.sonarrApiKey = byId("sonarrApiKey").value || "";
@@ -360,13 +408,15 @@
 
             async function persistCurrentConfig() {
                 const config = await buildCurrentConfig();
-                await ApiClient.ajax({
+                const savedConfig = await ApiClient.ajax({
                     type: "POST",
-                    url: ApiClient.getUrl("Plugins/" + pluginId + "/Configuration"),
+                    url: ApiClient.getUrl("Plugins/WatchlistRequestsSync/Configuration"),
                     contentType: "application/json",
-                    data: JSON.stringify(config)
+                    data: JSON.stringify(config),
+                    dataType: "json"
                 });
-                return config;
+                page._config = Object.assign(createDefaultConfig(), savedConfig || config);
+                return page._config;
             }
 
             async function executeManualSync(endpoint) {
@@ -382,7 +432,8 @@
             }
 
             async function loadPage() {
-                const config = await ApiClient.getPluginConfiguration(pluginId);
+                const config = await getPluginConfiguration();
+                page._config = config;
                 byId("enablePlugin").checked = !!config.isEnabled;
                 byId("sonarrBaseUrl").value = config.sonarrBaseUrl || "";
                 byId("sonarrApiKey").value = config.sonarrApiKey || "";
@@ -427,8 +478,9 @@
             });
 
             loadPage().catch(function (error) {
-                const message = error && error.message ? error.message : String(error);
-                byId("statusOutput").textContent = "Failed to load plugin configuration: " + message;
+                describeError(error).then(function (message) {
+                    byId("statusOutput").textContent = "Failed to load plugin configuration: " + message;
+                });
             });
         })();
     </script>
