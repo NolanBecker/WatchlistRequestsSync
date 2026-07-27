@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.11.4",
+        "changelog": "Fix plugin configuration page loading by using plugin-owned configuration endpoints and clearer error handling.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/NolanBecker/WatchlistRequestsSync/releases/download/v1.0.11.4/Jellyfin.Plugin.WatchlistRequestsSync_1.0.11.4.zip",
+        "checksum": "6a91f47a2644352db304b49373e34da5",
+        "timestamp": "2026-07-27T18:15:12.0000000+00:00"
+      },
+      {
         "version": "1.0.11.3",
         "changelog": "Fix the empty per-user settings section by adding safer Jellyfin user loading fallbacks.",
         "targetAbi": "10.11.0.0",
