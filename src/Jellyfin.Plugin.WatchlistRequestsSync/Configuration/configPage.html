@@ -62,6 +62,10 @@
 
                 <section class="settingsSection">
                     <h2>Per-User Settings</h2>
+                    <div class="sectionActions">
+                        <div class="hintText">If Jellyfin users do not auto-populate here, add a user manually with the Jellyfin user id.</div>
+                        <button is="emby-button" type="button" id="addUserButton" class="raised button-submit">Add User Entry</button>
+                    </div>
                     <div id="userSettingsContainer"></div>
                 </section>
 
@@ -139,6 +143,14 @@
             flex-wrap: wrap;
         }
 
+        #WatchlistRequestsSyncConfigPage .sectionActions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
         #WatchlistRequestsSyncConfigPage .buttonRow button {
             min-width: 10rem;
         }
@@ -148,6 +160,18 @@
             border-radius: 12px;
             padding: 1rem 1rem 1.25rem;
             background: rgba(0, 0, 0, 0.15);
+        }
+
+        #WatchlistRequestsSyncConfigPage .userCardHeader {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        #WatchlistRequestsSyncConfigPage .removeUserButton {
+            min-width: 0;
         }
 
         #WatchlistRequestsSyncConfigPage .statusOutput {
@@ -203,6 +227,22 @@
                 };
             }
 
+            function createUserEntry(userId, userName, settings) {
+                return {
+                    jellyfinUserId: userId,
+                    jellyfinUserName: userName,
+                    settings: settings || createDefaultSettings(userId, userName)
+                };
+            }
+
+            function escapeHtml(value) {
+                return String(value)
+                    .replaceAll("&", "&amp;")
+                    .replaceAll("\"", "&quot;")
+                    .replaceAll("<", "&lt;")
+                    .replaceAll(">", "&gt;");
+            }
+
             async function describeError(error) {
                 if (error && typeof error === "object") {
                     if (typeof error.text === "function") {
@@ -243,12 +283,28 @@
                     wrapper.className = "userCard";
                     wrapper.dataset.index = index.toString();
                     wrapper.innerHTML = [
-                        "<h3>" + user.jellyfinUserName + "</h3>",
+                        "<div class='userCardHeader'>",
+                        "<h3>" + escapeHtml(user.jellyfinUserName || "User Entry") + "</h3>",
+                        "<button is='emby-button' type='button' class='removeUserButton' data-remove-user='" + index + "'>Remove</button>",
+                        "</div>",
+                        "<label>Jellyfin User Name <input type='text' data-field='jellyfinUserName' value='" + escapeHtml(user.jellyfinUserName || "") + "' /></label>",
+                        "<label>Jellyfin User Id <input type='text' data-field='jellyfinUserId' value='" + escapeHtml(user.jellyfinUserId || "") + "' /></label>",
                         "<label>Enable Sync <input type='checkbox' data-field='isEnabled' " + (user.settings.isEnabled ? "checked" : "") + " /></label>",
                         "<label>Include Movies <input type='checkbox' data-field='includeMovies' " + (user.settings.includeMovies ? "checked" : "") + " /></label>",
                         "<label>Include Series <input type='checkbox' data-field='includeSeries' " + (user.settings.includeSeries ? "checked" : "") + " /></label>"
                     ].join("");
                     container.appendChild(wrapper);
+                });
+
+                container.querySelectorAll("[data-remove-user]").forEach(function (button) {
+                    button.addEventListener("click", function () {
+                        const index = parseInt(button.getAttribute("data-remove-user"), 10);
+                        const usersToKeep = (page._users || []).filter(function (_, userIndex) {
+                            return userIndex !== index;
+                        });
+                        page._users = usersToKeep;
+                        renderUsers(usersToKeep);
+                    });
                 });
             }
 
@@ -288,11 +344,7 @@
                     }
 
                     const userName = normalizeUserName(user);
-                    return {
-                        jellyfinUserId: userId,
-                        jellyfinUserName: userName,
-                        settings: user.settings || user.Settings || createDefaultSettings(userId, userName)
-                    };
+                    return createUserEntry(userId, userName, user.settings || user.Settings || createDefaultSettings(userId, userName));
                 }).filter(Boolean);
             }
 
@@ -317,11 +369,7 @@
 
                     const userName = normalizeUserName(user);
                     const existing = existingUsersById[userId];
-                    return {
-                        jellyfinUserId: userId,
-                        jellyfinUserName: userName,
-                        settings: existing ? JSON.parse(JSON.stringify(existing.settings)) : createDefaultSettings(userId, userName)
-                    };
+                    return createUserEntry(userId, userName, existing ? JSON.parse(JSON.stringify(existing.settings)) : createDefaultSettings(userId, userName));
                 }).filter(Boolean);
             }
 
@@ -367,14 +415,30 @@
                 return cards.map(function (card) {
                     const original = existingUsers[parseInt(card.dataset.index, 10)];
                     const updated = JSON.parse(JSON.stringify(original.settings));
+                    let jellyfinUserId = original.jellyfinUserId;
+                    let jellyfinUserName = original.jellyfinUserName;
 
                     card.querySelectorAll("[data-field]").forEach(function (field) {
-                        updated[field.dataset.field] = field.checked;
+                        if (field.type === "checkbox") {
+                            updated[field.dataset.field] = field.checked;
+                            return;
+                        }
+
+                        if (field.dataset.field === "jellyfinUserId") {
+                            jellyfinUserId = (field.value || "").trim();
+                            return;
+                        }
+
+                        if (field.dataset.field === "jellyfinUserName") {
+                            jellyfinUserName = (field.value || "").trim();
+                        }
                     });
 
-                    updated.jellyfinUserId = original.jellyfinUserId;
-                    updated.jellyfinUserName = original.jellyfinUserName;
+                    updated.jellyfinUserId = jellyfinUserId;
+                    updated.jellyfinUserName = jellyfinUserName || jellyfinUserId;
                     return updated;
+                }).filter(function (user) {
+                    return !!user.jellyfinUserId;
                 });
             }
 
@@ -475,8 +539,19 @@
 
             byId("saveButton").addEventListener("click", async function () {
                 await persistCurrentConfig();
+                page._users = captureUsers(page._users || []).map(function (user) {
+                    return createUserEntry(user.jellyfinUserId, user.jellyfinUserName, user);
+                });
+                renderUsers(page._users);
                 byId("statusOutput").textContent = "Configuration saved.";
                 Dashboard.processPluginConfigurationUpdateResult();
+            });
+
+            byId("addUserButton").addEventListener("click", function () {
+                const users = (page._users || []).slice();
+                users.push(createUserEntry("", "", createDefaultSettings("", "")));
+                page._users = users;
+                renderUsers(users);
             });
 
             byId("testConnectionButton").addEventListener("click", async function () {
