@@ -77,7 +77,16 @@ public sealed class WatchlistRequestsSyncController : ControllerBase
     {
         var configuration = _configurationAccessor.GetConfiguration();
         var configuredUsers = configuration.Users.ToDictionary(static user => user.JellyfinUserId, StringComparer.OrdinalIgnoreCase);
-        var jellyfinUsers = await _jellyfinApi.GetUsersAsync(cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<JellyfinUserInfo> jellyfinUsers;
+
+        try
+        {
+            jellyfinUsers = await _jellyfinApi.GetUsersAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            jellyfinUsers = Array.Empty<JellyfinUserInfo>();
+        }
 
         var users = jellyfinUsers.Select(user =>
         {
@@ -99,6 +108,16 @@ public sealed class WatchlistRequestsSyncController : ControllerBase
                 Settings = settings
             };
         }).ToList();
+
+        if (users.Count == 0 && configuredUsers.Count > 0)
+        {
+            users = configuredUsers.Values.Select(settings => new UserSettingsDto
+            {
+                JellyfinUserId = settings.JellyfinUserId,
+                JellyfinUserName = settings.JellyfinUserName,
+                Settings = settings
+            }).ToList();
+        }
 
         return Ok(users);
     }

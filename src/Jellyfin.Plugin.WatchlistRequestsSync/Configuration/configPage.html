@@ -344,7 +344,11 @@
             }
 
             async function fetchCurrentUserFallback(existingUsersById) {
-                const currentUser = await ApiClient.getCurrentUser();
+                const currentUser = await ApiClient.ajax({
+                    type: "GET",
+                    url: ApiClient.getUrl("Users/Me"),
+                    dataType: "json"
+                });
                 return normalizeCoreUsers([currentUser], existingUsersById);
             }
 
@@ -375,7 +379,13 @@
             }
 
             async function fetchUsers() {
-                const pluginUsers = normalizePluginUsers(await ApiClient.getJSON(ApiClient.getUrl("Plugins/WatchlistRequestsSync/Users")));
+                let pluginUsers = [];
+                try {
+                    pluginUsers = normalizePluginUsers(await ApiClient.getJSON(ApiClient.getUrl("Plugins/WatchlistRequestsSync/Users")));
+                } catch (error) {
+                    console.warn("Failed to load plugin user settings.", error);
+                }
+
                 const existingUsersById = Object.fromEntries(pluginUsers.map(function (user) {
                     return [user.jellyfinUserId, user];
                 }));
