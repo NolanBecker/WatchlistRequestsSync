@@ -167,7 +167,12 @@ public abstract class ArrClientBase : IArrClient
         var matchingTagIds = ResolveMatchingTagIds(configuredTagValues, tags);
         if (matchingTagIds.Count == 0)
         {
-            return Array.Empty<ArrMediaItem>();
+            var availableTags = tags.Count == 0
+                ? "none"
+                : string.Join(", ", tags.OrderBy(static entry => entry.Value, StringComparer.OrdinalIgnoreCase).Select(static entry => entry.Value));
+
+            throw new InvalidOperationException(
+                $"Configured {Source} tags were not found. Configured: {string.Join(", ", configuredTagValues)}. Available: {availableTags}.");
         }
 
         using var request = CreateRequest(HttpMethod.Get, normalizedUrl + ItemsEndpoint, apiKey);
@@ -196,6 +201,18 @@ public abstract class ArrClientBase : IArrClient
             }
         }
 
+        if (results.Count == 0)
+        {
+            var matchedLabels = tags
+                .Where(entry => matchingTagIds.Contains(entry.Key))
+                .Select(static entry => entry.Value)
+                .OrderBy(static entry => entry, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            throw new InvalidOperationException(
+                $"Configured {Source} tags exist ({string.Join(", ", matchedLabels)}), but no {Source} library items currently use them.");
+        }
+
         return results;
     }
 
@@ -210,8 +227,9 @@ public abstract class ArrClientBase : IArrClient
 
         return tagsElement
             .EnumerateArray()
-            .Where(static value => value.ValueKind == JsonValueKind.Number)
-            .Select(static value => value.GetInt32())
+            .Select(TryReadInt32)
+            .Where(static value => value.HasValue)
+            .Select(static value => value!.Value)
             .ToArray();
     }
 
@@ -231,14 +249,22 @@ public abstract class ArrClientBase : IArrClient
         return document.RootElement
             .EnumerateArray()
             .Where(static item => item.TryGetProperty("id", out _) && item.TryGetProperty("label", out _))
+            .Select(static item => new
+            {
+                Id = TryReadInt32(item.GetProperty("id")),
+                Label = item.GetProperty("label").GetString() ?? string.Empty
+            })
+            .Where(static item => item.Id.HasValue && !string.IsNullOrWhiteSpace(item.Label))
             .ToDictionary(
-                static item => item.GetProperty("id").GetInt32(),
-                static item => item.GetProperty("label").GetString() ?? string.Empty);
+                static item => item.Id!.Value,
+                static item => item.Label);
     }
 
     private static HashSet<string> ParseConfiguredTags(string configuredTags)
         => configuredTags
             .Split([',', ';', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(NormalizeTagToken)
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     private static HashSet<int> ResolveMatchingTagIds(IReadOnlySet<string> configuredTags, IReadOnlyDictionary<int, string> tags)
@@ -246,7 +272,9 @@ public abstract class ArrClientBase : IArrClient
         var matches = new HashSet<int>();
         foreach (var (id, label) in tags)
         {
-            if (configuredTags.Contains(label) || configuredTags.Contains(id.ToString(CultureInfo.InvariantCulture)))
+            var normalizedLabel = NormalizeTagToken(label);
+            if (configuredTags.Contains(normalizedLabel)
+                || configuredTags.Contains(id.ToString(CultureInfo.InvariantCulture)))
             {
                 matches.Add(id);
             }
@@ -254,6 +282,25 @@ public abstract class ArrClientBase : IArrClient
 
         return matches;
     }
+
+    private static int? TryReadInt32(JsonElement value)
+    {
+        if (value.ValueKind == JsonValueKind.Number)
+        {
+            return value.GetInt32();
+        }
+
+        if (value.ValueKind == JsonValueKind.String
+            && int.TryParse(value.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+        {
+            return parsed;
+        }
+
+        return null;
+    }
+
+    private static string NormalizeTagToken(string value)
+        => value.Trim().ToLowerInvariant();
 
     private static HttpRequestMessage CreateRequest(HttpMethod method, string uri, string apiKey)
     {
