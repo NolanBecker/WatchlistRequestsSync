@@ -53,13 +53,13 @@ public sealed class JellyfinApi : IJellyfinApi
         return Task.FromResult<IReadOnlyList<JellyfinLibraryItem>>(items.Select(ToLibraryItem).ToList());
     }
 
-    public Task<IReadOnlyList<JellyfinLibraryItem>> FindItemsByProviderIdAsync(string jellyfinUserId, RequestMediaType mediaType, string providerName, string providerValue, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<JellyfinLibraryItem>> FindItemsByProviderIdAsync(string jellyfinUserId, MediaKind mediaKind, string providerName, string providerValue, CancellationToken cancellationToken)
     {
         var user = GetUser(jellyfinUserId);
         var items = _libraryManager.GetItemList(new InternalItemsQuery(user)
         {
             Recursive = true,
-            IncludeItemTypes = GetItemTypes(mediaType),
+            IncludeItemTypes = GetItemTypes(mediaKind),
             HasAnyProviderId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 [providerName] = providerValue
@@ -69,14 +69,14 @@ public sealed class JellyfinApi : IJellyfinApi
         return Task.FromResult<IReadOnlyList<JellyfinLibraryItem>>(items.Select(ToLibraryItem).ToList());
     }
 
-    public Task<IReadOnlyList<JellyfinLibraryItem>> FindItemsByTitleYearAsync(string jellyfinUserId, RequestMediaType mediaType, string title, int? year, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<JellyfinLibraryItem>> FindItemsByTitleYearAsync(string jellyfinUserId, MediaKind mediaKind, string title, int? year, CancellationToken cancellationToken)
     {
         var user = GetUser(jellyfinUserId);
         var items = _libraryManager.GetItemList(new InternalItemsQuery(user)
         {
             Recursive = true,
             SearchTerm = title,
-            IncludeItemTypes = GetItemTypes(mediaType),
+            IncludeItemTypes = GetItemTypes(mediaKind),
             Years = year.HasValue ? [year.Value] : []
         });
 
@@ -86,17 +86,6 @@ public sealed class JellyfinApi : IJellyfinApi
             .Select(ToLibraryItem)
             .ToList();
         return Task.FromResult<IReadOnlyList<JellyfinLibraryItem>>(exact);
-    }
-
-    public Task<IReadOnlyList<JellyfinLibraryItem>> GetItemsByTagAsync(string jellyfinUserId, string tag, CancellationToken cancellationToken)
-    {
-        var user = GetUser(jellyfinUserId);
-        var items = _libraryManager.GetItemList(new InternalItemsQuery(user)
-        {
-            Recursive = true,
-            Tags = [tag]
-        });
-        return Task.FromResult<IReadOnlyList<JellyfinLibraryItem>>(items.Select(ToLibraryItem).ToList());
     }
 
     public Task SetItemLikeAsync(string jellyfinUserId, string jellyfinItemId, CancellationToken cancellationToken)
@@ -186,6 +175,6 @@ public sealed class JellyfinApi : IJellyfinApi
             Tags = item.Tags?.ToArray() ?? Array.Empty<string>()
         };
 
-    private static BaseItemKind[] GetItemTypes(RequestMediaType mediaType)
-        => mediaType == RequestMediaType.Movie ? [BaseItemKind.Movie] : [BaseItemKind.Series];
+    private static BaseItemKind[] GetItemTypes(MediaKind mediaKind)
+        => mediaKind == MediaKind.Movie ? [BaseItemKind.Movie] : [BaseItemKind.Series];
 }

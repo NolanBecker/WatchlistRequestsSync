@@ -11,9 +11,9 @@ public sealed class JellyfinMediaMatcher : IJellyfinMediaMatcher
         _jellyfinApi = jellyfinApi;
     }
 
-    public async Task<MediaMatchResult> MatchRequestAsync(string jellyfinUserId, NormalizedSeerrRequest request, CancellationToken cancellationToken)
+    public async Task<MediaMatchResult> MatchItemAsync(string jellyfinUserId, ArrMediaItem item, CancellationToken cancellationToken)
     {
-        var providerMatches = await FindProviderMatchesAsync(jellyfinUserId, request, cancellationToken).ConfigureAwait(false);
+        var providerMatches = await FindProviderMatchesAsync(jellyfinUserId, item, cancellationToken).ConfigureAwait(false);
         if (providerMatches.Count == 1)
         {
             return ToMatch(providerMatches[0]);
@@ -29,7 +29,7 @@ public sealed class JellyfinMediaMatcher : IJellyfinMediaMatcher
             };
         }
 
-        var fallbackMatches = await _jellyfinApi.FindItemsByTitleYearAsync(jellyfinUserId, request.MediaType, request.Title, request.Year, cancellationToken).ConfigureAwait(false);
+        var fallbackMatches = await _jellyfinApi.FindItemsByTitleYearAsync(jellyfinUserId, item.MediaKind, item.Title, item.Year, cancellationToken).ConfigureAwait(false);
         if (fallbackMatches.Count == 1)
         {
             return ToMatch(fallbackMatches[0]);
@@ -52,15 +52,15 @@ public sealed class JellyfinMediaMatcher : IJellyfinMediaMatcher
         };
     }
 
-    private async Task<List<JellyfinLibraryItem>> FindProviderMatchesAsync(string jellyfinUserId, NormalizedSeerrRequest request, CancellationToken cancellationToken)
+    private async Task<List<JellyfinLibraryItem>> FindProviderMatchesAsync(string jellyfinUserId, ArrMediaItem item, CancellationToken cancellationToken)
     {
-        var keys = request.MediaType == RequestMediaType.Movie
-            ? new[] { ("Tmdb", request.ProviderIds.Tmdb) }
+        var keys = item.MediaKind == MediaKind.Movie
+            ? new[] { ("Tmdb", item.ProviderIds.Tmdb), ("Imdb", item.ProviderIds.Imdb) }
             : new[]
             {
-                ("Tvdb", request.ProviderIds.Tvdb),
-                ("Tmdb", request.ProviderIds.Tmdb),
-                ("Imdb", request.ProviderIds.Imdb)
+                ("Tvdb", item.ProviderIds.Tvdb),
+                ("Tmdb", item.ProviderIds.Tmdb),
+                ("Imdb", item.ProviderIds.Imdb)
             };
 
         foreach (var (providerName, providerValue) in keys)
@@ -70,7 +70,7 @@ public sealed class JellyfinMediaMatcher : IJellyfinMediaMatcher
                 continue;
             }
 
-            var matches = await _jellyfinApi.FindItemsByProviderIdAsync(jellyfinUserId, request.MediaType, providerName, providerValue, cancellationToken).ConfigureAwait(false);
+            var matches = await _jellyfinApi.FindItemsByProviderIdAsync(jellyfinUserId, item.MediaKind, providerName, providerValue, cancellationToken).ConfigureAwait(false);
             if (matches.Count > 0)
             {
                 return matches.ToList();

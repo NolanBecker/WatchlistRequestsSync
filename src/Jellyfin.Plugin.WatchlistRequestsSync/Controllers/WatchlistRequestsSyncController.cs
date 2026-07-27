@@ -32,11 +32,11 @@ public sealed class WatchlistRequestsSyncController : ControllerBase
     }
 
     [HttpPost("TestConnection")]
-    public async Task<ActionResult<SeerrConnectionTestResult>> TestConnection([FromBody] SeerrConnectionTestRequest? request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ConnectionTestResult>> TestConnection([FromBody] ConnectionTestRequest? request, CancellationToken cancellationToken)
     {
         if (request is not null)
         {
-            return Ok(await _syncService.TestConnectionAsync(request.SeerrBaseUrl, request.ApiKey, cancellationToken).ConfigureAwait(false));
+            return Ok(await _syncService.TestConnectionAsync(request, cancellationToken).ConfigureAwait(false));
         }
 
         return Ok(await _syncService.TestConnectionAsync(cancellationToken).ConfigureAwait(false));

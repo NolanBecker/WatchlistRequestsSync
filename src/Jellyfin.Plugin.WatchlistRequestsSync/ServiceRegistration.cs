@@ -10,11 +10,12 @@ public sealed class ServiceRegistration : IPluginServiceRegistrator
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
         serviceCollection.AddSingleton<IJellyfinApi, JellyfinApi>();
-        serviceCollection.AddHttpClient<ISeerrClient, SeerrClient>();
+        serviceCollection.AddHttpClient<SonarrClient>();
+        serviceCollection.AddHttpClient<RadarrClient>();
+        serviceCollection.AddSingleton<IArrClient>(serviceProvider => serviceProvider.GetRequiredService<SonarrClient>());
+        serviceCollection.AddSingleton<IArrClient>(serviceProvider => serviceProvider.GetRequiredService<RadarrClient>());
         serviceCollection.AddSingleton<IPluginConfigurationAccessor, PluginConfigurationAccessor>();
         serviceCollection.AddSingleton<IPluginStateStore, JsonPluginStateStore>();
-        serviceCollection.AddSingleton<IUserMappingService, UserMappingService>();
-        serviceCollection.AddSingleton<ITagSyncService, TagSyncService>();
         serviceCollection.AddSingleton<IJellyfinMediaMatcher, JellyfinMediaMatcher>();
         serviceCollection.AddSingleton<IKefinTweaksWatchlistAdapter, KefinTweaksWatchlistAdapter>();
         serviceCollection.AddSingleton<ISyncService, SyncService>();

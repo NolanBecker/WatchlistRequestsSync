@@ -21,7 +21,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
     public override Guid Id => Guid.Parse("7b2cef2e-d5ea-43e2-be8e-ab2070b2d18e");
 
-    public override string Description => "Syncs Seerr or Jellyseerr requests into each Jellyfin user's KefinTweaks watchlist using additive Likes updates.";
+    public override string Description => "Syncs Sonarr and Radarr items with configured tags into each Jellyfin user's KefinTweaks watchlist using additive Likes updates.";
 
     public IEnumerable<PluginPageInfo> GetPages()
     {

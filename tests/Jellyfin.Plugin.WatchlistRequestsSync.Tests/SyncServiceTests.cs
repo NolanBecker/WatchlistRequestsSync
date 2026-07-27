@@ -8,26 +8,11 @@ namespace Jellyfin.Plugin.WatchlistRequestsSync.Tests;
 public sealed class SyncServiceTests
 {
     [Fact]
-    public void UserMapping_PrefersEmbeddedJellyfinUserId()
-    {
-        var service = new UserMappingService();
-        var request = new NormalizedSeerrRequest
-        {
-            SeerrUserId = 33,
-            JellyfinUserId = "user-a"
-        };
-
-        var result = service.MapSeerrRequestToJellyfinUser(request, new Dictionary<long, string> { [33] = "user-b" });
-
-        Assert.Equal("user-a", result);
-    }
-
-    [Fact]
     public async Task DuplicatePrevention_SkipsAlreadyLikedItems()
     {
         var service = CreateSyncService(
-            requests: [CreateRequest(101, 7, "user-a")],
-            mediaMatchResults: new Dictionary<long, MediaMatchResult> { [101] = Match("item-1", "Inception") },
+            sourceItems: [CreateItem(ArrSourceKind.Radarr, 101, MediaKind.Movie, "Inception")],
+            mediaMatchResults: new Dictionary<string, MediaMatchResult> { ["Radarr:101"] = Match("item-1", "Inception") },
             watchlistItemIds: new HashSet<string> { "item-1" });
 
         var result = await service.RunAsync(SyncRunMode.Manual, CancellationToken.None);
@@ -42,8 +27,8 @@ public sealed class SyncServiceTests
     {
         var fakeAdapter = new FakeWatchlistAdapter();
         var service = CreateSyncService(
-            requests: [CreateRequest(101, 7, "user-a")],
-            mediaMatchResults: new Dictionary<long, MediaMatchResult> { [101] = Match("item-1", "Inception") },
+            sourceItems: [CreateItem(ArrSourceKind.Radarr, 101, MediaKind.Movie, "Inception")],
+            mediaMatchResults: new Dictionary<string, MediaMatchResult> { ["Radarr:101"] = Match("item-1", "Inception") },
             adapter: fakeAdapter,
             configurationOverride: config => config.DryRun = true);
 
@@ -55,33 +40,36 @@ public sealed class SyncServiceTests
     }
 
     [Fact]
-    public async Task TagSync_IsPerUserOnly()
+    public async Task UserSettings_FilterItemsByMediaType()
     {
-        var tagService = new FakeTagSyncService(new Dictionary<string, IReadOnlyList<SyncCandidate>>
-        {
-            ["user-a"] = [new SyncCandidate { JellyfinUserId = "user-a", JellyfinItemId = "item-9", ItemName = "Tagged", Source = SyncItemSource.Tag }],
-            ["user-b"] = [new SyncCandidate { JellyfinUserId = "user-b", JellyfinItemId = "item-8", ItemName = "Wrong User", Source = SyncItemSource.Tag }]
-        });
-
         var service = CreateSyncService(
-            requests: Array.Empty<NormalizedSeerrRequest>(),
-            mediaMatchResults: new Dictionary<long, MediaMatchResult>(),
-            tagSyncService: tagService);
+            sourceItems:
+            [
+                CreateItem(ArrSourceKind.Radarr, 101, MediaKind.Movie, "Inception"),
+                CreateItem(ArrSourceKind.Sonarr, 202, MediaKind.Series, "Dark")
+            ],
+            mediaMatchResults: new Dictionary<string, MediaMatchResult>
+            {
+                ["Radarr:101"] = Match("movie-1", "Inception"),
+                ["Sonarr:202"] = Match("series-1", "Dark")
+            },
+            configurationOverride: config => config.Users[0].IncludeMovies = false);
 
         var result = await service.RunAsync(SyncRunMode.Manual, CancellationToken.None);
 
         Assert.Single(result.Users[0].AddedItems);
-        Assert.Equal("item-9", result.Users[0].AddedItems[0].JellyfinItemId);
+        Assert.Equal("series-1", result.Users[0].AddedItems[0].JellyfinItemId);
     }
 
     [Fact]
-    public async Task SeerrFailure_IsReportedWithoutWrites()
+    public async Task SourceFailure_IsReportedWithoutWrites()
     {
         var fakeAdapter = new FakeWatchlistAdapter();
         var service = CreateSyncService(
-            requestsException: new HttpRequestException("boom"),
-            mediaMatchResults: new Dictionary<long, MediaMatchResult>(),
-            adapter: fakeAdapter);
+            sourceItems: Array.Empty<ArrMediaItem>(),
+            mediaMatchResults: new Dictionary<string, MediaMatchResult>(),
+            adapter: fakeAdapter,
+            radarrException: new HttpRequestException("boom"));
 
         var result = await service.RunAsync(SyncRunMode.Manual, CancellationToken.None);
 
@@ -93,24 +81,25 @@ public sealed class SyncServiceTests
     public async Task Preview_UsesProvidedConfigurationWhenPersistedConfigIsStale()
     {
         var service = CreateSyncService(
-            requests: [CreateRequest(101, 7, "user-a")],
-            mediaMatchResults: new Dictionary<long, MediaMatchResult> { [101] = Match("item-1", "Inception") },
-            configurationOverride: config => config.SeerrBaseUrl = string.Empty);
+            sourceItems: Array.Empty<ArrMediaItem>(),
+            mediaMatchResults: new Dictionary<string, MediaMatchResult>(),
+            configurationOverride: config => config.RadarrBaseUrl = string.Empty,
+            radarrItemsForProvidedConfig: [CreateItem(ArrSourceKind.Radarr, 101, MediaKind.Movie, "Inception")],
+            overrideMediaMatchResults: new Dictionary<string, MediaMatchResult> { ["Radarr:101"] = Match("item-1", "Inception") });
 
         var result = await service.PreviewAsync(new PluginConfiguration
         {
             IsEnabled = true,
-            SeerrBaseUrl = "http://seerr.local",
-            ApiKey = "key",
+            RadarrBaseUrl = "http://radarr.local",
+            RadarrApiKey = "key",
+            RadarrTags = "watchlist",
             Users =
             [
                 new UserSyncSettings
                 {
                     JellyfinUserId = "user-a",
                     JellyfinUserName = "User A",
-                    IsEnabled = true,
-                    SeerrUserId = "7",
-                    MediaTag = "watchlist-a"
+                    IsEnabled = true
                 }
             ]
         }, CancellationToken.None);
@@ -124,25 +113,26 @@ public sealed class SyncServiceTests
     {
         var fakeAdapter = new FakeWatchlistAdapter();
         var service = CreateSyncService(
-            requests: [CreateRequest(101, 7, "user-a")],
-            mediaMatchResults: new Dictionary<long, MediaMatchResult> { [101] = Match("item-1", "Inception") },
+            sourceItems: Array.Empty<ArrMediaItem>(),
+            mediaMatchResults: new Dictionary<string, MediaMatchResult>(),
             adapter: fakeAdapter,
-            configurationOverride: config => config.SeerrBaseUrl = string.Empty);
+            configurationOverride: config => config.RadarrBaseUrl = string.Empty,
+            radarrItemsForProvidedConfig: [CreateItem(ArrSourceKind.Radarr, 101, MediaKind.Movie, "Inception")],
+            overrideMediaMatchResults: new Dictionary<string, MediaMatchResult> { ["Radarr:101"] = Match("item-1", "Inception") });
 
         var result = await service.RunAsync(SyncRunMode.Manual, new PluginConfiguration
         {
             IsEnabled = true,
-            SeerrBaseUrl = "http://seerr.local",
-            ApiKey = "key",
+            RadarrBaseUrl = "http://radarr.local",
+            RadarrApiKey = "key",
+            RadarrTags = "watchlist",
             Users =
             [
                 new UserSyncSettings
                 {
                     JellyfinUserId = "user-a",
                     JellyfinUserName = "User A",
-                    IsEnabled = true,
-                    SeerrUserId = "7",
-                    MediaTag = "watchlist-a"
+                    IsEnabled = true
                 }
             ]
         }, CancellationToken.None);
@@ -165,8 +155,8 @@ public sealed class SyncServiceTests
         };
 
         var service = CreateSyncService(
-            requests: [CreateRequest(101, 7, "user-a")],
-            mediaMatchResults: new Dictionary<long, MediaMatchResult> { [101] = Match("item-1", "Inception") },
+            sourceItems: [CreateItem(ArrSourceKind.Radarr, 101, MediaKind.Movie, "Inception")],
+            mediaMatchResults: new Dictionary<string, MediaMatchResult> { ["Radarr:101"] = Match("item-1", "Inception") },
             adapter: adapter);
 
         var result = await service.RunAsync(SyncRunMode.Manual, CancellationToken.None);
@@ -183,15 +173,17 @@ public sealed class SyncServiceTests
         {
             ProviderSearchResults =
             {
-                [("user-a", RequestMediaType.Movie, "Tmdb", "27205")] =
+                [("user-a", MediaKind.Movie, "Tmdb", "27205")] =
                     [new JellyfinLibraryItem { Id = "movie-1", Name = "Inception", Type = "Movie" }]
             }
         };
         var matcher = new JellyfinMediaMatcher(api);
 
-        var result = await matcher.MatchRequestAsync("user-a", new NormalizedSeerrRequest
+        var result = await matcher.MatchItemAsync("user-a", new ArrMediaItem
         {
-            MediaType = RequestMediaType.Movie,
+            Source = ArrSourceKind.Radarr,
+            SourceItemId = 1,
+            MediaKind = MediaKind.Movie,
             ProviderIds = new ProviderIdSet { Tmdb = "27205" },
             Title = "Inception",
             Year = 2010
@@ -208,7 +200,7 @@ public sealed class SyncServiceTests
         {
             TitleSearchResults =
             {
-                [("user-a", RequestMediaType.Series, "Dark", 2017)] =
+                [("user-a", MediaKind.Series, "Dark", 2017)] =
                 [
                     new JellyfinLibraryItem { Id = "series-1", Name = "Dark", Type = "Series", ProductionYear = 2017 },
                     new JellyfinLibraryItem { Id = "series-2", Name = "Dark", Type = "Series", ProductionYear = 2017 }
@@ -217,9 +209,11 @@ public sealed class SyncServiceTests
         };
         var matcher = new JellyfinMediaMatcher(api);
 
-        var result = await matcher.MatchRequestAsync("user-a", new NormalizedSeerrRequest
+        var result = await matcher.MatchItemAsync("user-a", new ArrMediaItem
         {
-            MediaType = RequestMediaType.Series,
+            Source = ArrSourceKind.Sonarr,
+            SourceItemId = 2,
+            MediaKind = MediaKind.Series,
             Title = "Dark",
             Year = 2017
         }, CancellationToken.None);
@@ -228,58 +222,121 @@ public sealed class SyncServiceTests
         Assert.True(result.IsAmbiguous);
     }
 
+    [Fact]
+    public async Task TestConnection_CombinesConfiguredSources()
+    {
+        var service = CreateSyncService(
+            sourceItems: Array.Empty<ArrMediaItem>(),
+            mediaMatchResults: new Dictionary<string, MediaMatchResult>(),
+            sonarrConnectionSuccess: true,
+            radarrConnectionSuccess: false);
+
+        var result = await service.TestConnectionAsync(new ConnectionTestRequest
+        {
+            SonarrBaseUrl = "http://sonarr.local",
+            SonarrApiKey = "sonarr-key",
+            RadarrBaseUrl = "http://radarr.local",
+            RadarrApiKey = "radarr-key"
+        }, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(2, result.Sources.Count);
+        Assert.Contains(result.Sources, source => source.Source == ArrSourceKind.Sonarr && source.IsSuccess);
+        Assert.Contains(result.Sources, source => source.Source == ArrSourceKind.Radarr && !source.IsSuccess);
+    }
+
+    [Fact]
+    public async Task TestConnection_FailsWhenNoSourcesConfigured()
+    {
+        var service = CreateSyncService(
+            sourceItems: Array.Empty<ArrMediaItem>(),
+            mediaMatchResults: new Dictionary<string, MediaMatchResult>());
+
+        var result = await service.TestConnectionAsync(new ConnectionTestRequest(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.All(result.Sources, source => Assert.False(source.IsEnabled));
+    }
+
+    [Fact]
+    public async Task RunReportsWhenNoTaggedItemsAreFound()
+    {
+        var service = CreateSyncService(
+            sourceItems: Array.Empty<ArrMediaItem>(),
+            mediaMatchResults: new Dictionary<string, MediaMatchResult>());
+
+        var result = await service.RunAsync(SyncRunMode.Manual, CancellationToken.None);
+
+        Assert.Contains(result.Errors, error => error.Contains("No tagged Sonarr or Radarr items were found.", StringComparison.Ordinal));
+    }
+
     private static SyncService CreateSyncService(
-        IReadOnlyList<NormalizedSeerrRequest>? requests = null,
-        Dictionary<long, MediaMatchResult>? mediaMatchResults = null,
+        IReadOnlyList<ArrMediaItem> sourceItems,
+        Dictionary<string, MediaMatchResult> mediaMatchResults,
         HashSet<string>? watchlistItemIds = null,
         FakeWatchlistAdapter? adapter = null,
-        FakeTagSyncService? tagSyncService = null,
-        Exception? requestsException = null,
-        Action<PluginConfiguration>? configurationOverride = null)
+        Exception? sonarrException = null,
+        Exception? radarrException = null,
+        Action<PluginConfiguration>? configurationOverride = null,
+        IReadOnlyList<ArrMediaItem>? radarrItemsForProvidedConfig = null,
+        Dictionary<string, MediaMatchResult>? overrideMediaMatchResults = null,
+        bool sonarrConnectionSuccess = true,
+        bool radarrConnectionSuccess = true)
     {
         var configuration = new PluginConfiguration
         {
             IsEnabled = true,
-            SeerrBaseUrl = "http://seerr.local",
-            ApiKey = "test-api-key",
+            SonarrBaseUrl = "http://sonarr.local",
+            SonarrApiKey = "sonarr-key",
+            SonarrTags = "watchlist-shows",
+            RadarrBaseUrl = "http://radarr.local",
+            RadarrApiKey = "radarr-key",
+            RadarrTags = "watchlist-movies",
             Users =
             [
                 new UserSyncSettings
                 {
                     JellyfinUserId = "user-a",
                     JellyfinUserName = "User A",
-                    IsEnabled = true,
-                    SeerrUserId = "7",
-                    MediaTag = "watchlist-a"
+                    IsEnabled = true
                 }
             ]
         };
         configurationOverride?.Invoke(configuration);
 
+        var providedConfigItems = radarrItemsForProvidedConfig ?? Array.Empty<ArrMediaItem>();
+        var matcherResults = overrideMediaMatchResults ?? mediaMatchResults;
+
         return new SyncService(
             new FakeConfigurationAccessor(configuration),
             new FakePluginStateStore(),
-            new FakeSeerrClient(requests ?? Array.Empty<NormalizedSeerrRequest>(), requestsException),
-            new UserMappingService(),
-            new FakeMediaMatcher(mediaMatchResults ?? new Dictionary<long, MediaMatchResult>()),
-            adapter ?? new FakeWatchlistAdapter(watchlistItemIds ?? []),
-            tagSyncService ?? new FakeTagSyncService(new Dictionary<string, IReadOnlyList<SyncCandidate>>
-            {
-                ["user-a"] = Array.Empty<SyncCandidate>()
-            }));
+            [
+                new FakeArrClient(ArrSourceKind.Sonarr, sourceItems.Where(item => item.Source == ArrSourceKind.Sonarr).ToList(), sonarrException, sonarrConnectionSuccess),
+                new FakeArrClient(
+                    ArrSourceKind.Radarr,
+                    sourceItems.Where(item => item.Source == ArrSourceKind.Radarr).ToList(),
+                    radarrException,
+                    radarrConnectionSuccess,
+                    new Dictionary<string, IReadOnlyList<ArrMediaItem>>
+                    {
+                        ["http://radarr.local|watchlist"] = providedConfigItems
+                    })
+            ],
+            new FakeMediaMatcher(matcherResults),
+            adapter ?? new FakeWatchlistAdapter(watchlistItemIds ?? []));
     }
 
-    private static NormalizedSeerrRequest CreateRequest(long id, long seerrUserId, string jellyfinUserId)
+    private static ArrMediaItem CreateItem(ArrSourceKind source, int sourceItemId, MediaKind mediaKind, string title)
         => new()
         {
-            RequestId = id,
-            SeerrUserId = seerrUserId,
-            JellyfinUserId = jellyfinUserId,
-            Title = "Inception",
-            MediaType = RequestMediaType.Movie,
-            ApprovalState = RequestApprovalState.Approved,
-            AvailabilityState = RequestAvailabilityState.Pending,
-            ProviderIds = new ProviderIdSet { Tmdb = "27205" }
+            Source = source,
+            SourceItemId = sourceItemId,
+            MediaKind = mediaKind,
+            Title = title,
+            Year = mediaKind == MediaKind.Movie ? 2010 : 2017,
+            ProviderIds = mediaKind == MediaKind.Movie
+                ? new ProviderIdSet { Tmdb = "27205" }
+                : new ProviderIdSet { Tvdb = "318408" }
         };
 
     private static MediaMatchResult Match(string itemId, string itemName)
@@ -315,51 +372,73 @@ public sealed class SyncServiceTests
         }
     }
 
-    private sealed class FakeSeerrClient : ISeerrClient
+    private sealed class FakeArrClient : IArrClient
     {
-        private readonly IReadOnlyList<NormalizedSeerrRequest> _requests;
+        private readonly IReadOnlyList<ArrMediaItem> _items;
         private readonly Exception? _exception;
+        private readonly Dictionary<string, IReadOnlyList<ArrMediaItem>> _overrides;
+        private readonly bool _connectionSuccess;
 
-        public FakeSeerrClient(IReadOnlyList<NormalizedSeerrRequest> requests, Exception? exception)
+        public FakeArrClient(
+            ArrSourceKind source,
+            IReadOnlyList<ArrMediaItem> items,
+            Exception? exception,
+            bool connectionSuccess,
+            Dictionary<string, IReadOnlyList<ArrMediaItem>>? overrides = null)
         {
-            _requests = requests;
+            Source = source;
+            _items = items;
             _exception = exception;
+            _connectionSuccess = connectionSuccess;
+            _overrides = overrides ?? [];
         }
 
-        public Task<SeerrConnectionTestResult> TestConnectionAsync(CancellationToken cancellationToken)
-            => Task.FromResult(new SeerrConnectionTestResult { IsSuccess = true });
+        public ArrSourceKind Source { get; }
 
-        public Task<SeerrConnectionTestResult> TestConnectionAsync(string baseUrl, string apiKey, CancellationToken cancellationToken)
+        public Task<ArrConnectionTestResult> TestConnectionAsync(CancellationToken cancellationToken)
+            => Task.FromResult(new ArrConnectionTestResult { IsSuccess = _connectionSuccess });
+
+        public Task<ArrConnectionTestResult> TestConnectionAsync(string baseUrl, string apiKey, CancellationToken cancellationToken)
+            => Task.FromResult(new ArrConnectionTestResult
+            {
+                IsSuccess = _connectionSuccess,
+                Message = _connectionSuccess ? "Connection succeeded." : "Connection failed.",
+                NormalizedBaseUrl = baseUrl
+            });
+
+        public Task<IReadOnlyList<ArrMediaItem>> GetTaggedItemsAsync(CancellationToken cancellationToken)
             => _exception is null
-                ? Task.FromResult(new SeerrConnectionTestResult
-                {
-                    IsSuccess = !string.IsNullOrWhiteSpace(baseUrl),
-                    NormalizedBaseUrl = baseUrl
-                })
-                : Task.FromException<SeerrConnectionTestResult>(_exception);
+                ? Task.FromResult(_items)
+                : Task.FromException<IReadOnlyList<ArrMediaItem>>(_exception);
 
-        public Task<IReadOnlyList<NormalizedSeerrRequest>> GetRequestsAsync(CancellationToken cancellationToken)
-            => _exception is null ? Task.FromResult(_requests) : Task.FromException<IReadOnlyList<NormalizedSeerrRequest>>(_exception);
+        public Task<IReadOnlyList<ArrMediaItem>> GetTaggedItemsAsync(string baseUrl, string apiKey, string configuredTags, CancellationToken cancellationToken)
+        {
+            if (_exception is not null)
+            {
+                return Task.FromException<IReadOnlyList<ArrMediaItem>>(_exception);
+            }
 
-        public Task<IReadOnlyList<NormalizedSeerrRequest>> GetRequestsAsync(string baseUrl, string apiKey, CancellationToken cancellationToken)
-            => _exception is not null
-                ? Task.FromException<IReadOnlyList<NormalizedSeerrRequest>>(_exception)
-                : string.IsNullOrWhiteSpace(baseUrl)
-                    ? Task.FromException<IReadOnlyList<NormalizedSeerrRequest>>(new InvalidOperationException("Seerr/Jellyseerr base URL is invalid."))
-                    : Task.FromResult(_requests);
+            var key = $"{baseUrl}|{configuredTags}";
+            if (_overrides.TryGetValue(key, out var overrideItems))
+            {
+                return Task.FromResult(overrideItems);
+            }
+
+            return Task.FromResult(_items);
+        }
     }
 
     private sealed class FakeMediaMatcher : IJellyfinMediaMatcher
     {
-        private readonly Dictionary<long, MediaMatchResult> _matches;
+        private readonly Dictionary<string, MediaMatchResult> _matches;
 
-        public FakeMediaMatcher(Dictionary<long, MediaMatchResult> matches)
+        public FakeMediaMatcher(Dictionary<string, MediaMatchResult> matches)
         {
             _matches = matches;
         }
 
-        public Task<MediaMatchResult> MatchRequestAsync(string jellyfinUserId, NormalizedSeerrRequest request, CancellationToken cancellationToken)
-            => Task.FromResult(_matches.TryGetValue(request.RequestId, out var result)
+        public Task<MediaMatchResult> MatchItemAsync(string jellyfinUserId, ArrMediaItem item, CancellationToken cancellationToken)
+            => Task.FromResult(_matches.TryGetValue($"{item.Source}:{item.SourceItemId}", out var result)
                 ? result
                 : new MediaMatchResult { IsMatch = false, FailureReason = "No match" });
     }
@@ -395,40 +474,26 @@ public sealed class SyncServiceTests
         }
     }
 
-    private sealed class FakeTagSyncService : ITagSyncService
-    {
-        private readonly Dictionary<string, IReadOnlyList<SyncCandidate>> _itemsByUser;
-
-        public FakeTagSyncService(Dictionary<string, IReadOnlyList<SyncCandidate>> itemsByUser)
-        {
-            _itemsByUser = itemsByUser;
-        }
-
-        public Task<IReadOnlyList<SyncCandidate>> GetTagCandidatesAsync(UserSyncSettings userSettings, CancellationToken cancellationToken)
-            => Task.FromResult(_itemsByUser.TryGetValue(userSettings.JellyfinUserId, out var items)
-                ? items
-                : Array.Empty<SyncCandidate>());
-    }
-
     private sealed class FakeJellyfinApi : IJellyfinApi
     {
-        public Dictionary<(string UserId, RequestMediaType MediaType, string ProviderName, string ProviderValue), IReadOnlyList<JellyfinLibraryItem>> ProviderSearchResults { get; } = [];
+        public Dictionary<(string UserId, MediaKind MediaKind, string ProviderName, string ProviderValue), IReadOnlyList<JellyfinLibraryItem>> ProviderSearchResults { get; } = [];
 
-        public Dictionary<(string UserId, RequestMediaType MediaType, string Title, int? Year), IReadOnlyList<JellyfinLibraryItem>> TitleSearchResults { get; } = [];
+        public Dictionary<(string UserId, MediaKind MediaKind, string Title, int? Year), IReadOnlyList<JellyfinLibraryItem>> TitleSearchResults { get; } = [];
 
-        public Task<IReadOnlyList<JellyfinUserInfo>> GetUsersAsync(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<JellyfinUserInfo>>(Array.Empty<JellyfinUserInfo>());
+        public Task<IReadOnlyList<JellyfinUserInfo>> GetUsersAsync(CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<JellyfinUserInfo>>(Array.Empty<JellyfinUserInfo>());
 
-        public Task<IReadOnlyList<JellyfinLibraryItem>> GetWatchlistItemsAsync(string jellyfinUserId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<JellyfinLibraryItem>>(Array.Empty<JellyfinLibraryItem>());
+        public Task<IReadOnlyList<JellyfinLibraryItem>> GetWatchlistItemsAsync(string jellyfinUserId, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<JellyfinLibraryItem>>(Array.Empty<JellyfinLibraryItem>());
 
-        public Task<IReadOnlyList<JellyfinLibraryItem>> FindItemsByProviderIdAsync(string jellyfinUserId, RequestMediaType mediaType, string providerName, string providerValue, CancellationToken cancellationToken)
-            => Task.FromResult(ProviderSearchResults.TryGetValue((jellyfinUserId, mediaType, providerName, providerValue), out var items) ? items : Array.Empty<JellyfinLibraryItem>());
+        public Task<IReadOnlyList<JellyfinLibraryItem>> FindItemsByProviderIdAsync(string jellyfinUserId, MediaKind mediaKind, string providerName, string providerValue, CancellationToken cancellationToken)
+            => Task.FromResult(ProviderSearchResults.TryGetValue((jellyfinUserId, mediaKind, providerName, providerValue), out var items) ? items : Array.Empty<JellyfinLibraryItem>());
 
-        public Task<IReadOnlyList<JellyfinLibraryItem>> FindItemsByTitleYearAsync(string jellyfinUserId, RequestMediaType mediaType, string title, int? year, CancellationToken cancellationToken)
-            => Task.FromResult(TitleSearchResults.TryGetValue((jellyfinUserId, mediaType, title, year), out var items) ? items : Array.Empty<JellyfinLibraryItem>());
+        public Task<IReadOnlyList<JellyfinLibraryItem>> FindItemsByTitleYearAsync(string jellyfinUserId, MediaKind mediaKind, string title, int? year, CancellationToken cancellationToken)
+            => Task.FromResult(TitleSearchResults.TryGetValue((jellyfinUserId, mediaKind, title, year), out var items) ? items : Array.Empty<JellyfinLibraryItem>());
 
-        public Task<IReadOnlyList<JellyfinLibraryItem>> GetItemsByTagAsync(string jellyfinUserId, string tag, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<JellyfinLibraryItem>>(Array.Empty<JellyfinLibraryItem>());
-
-        public Task SetItemLikeAsync(string jellyfinUserId, string jellyfinItemId, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task SetItemLikeAsync(string jellyfinUserId, string jellyfinItemId, CancellationToken cancellationToken)
+            => Task.CompletedTask;
 
         public Task<CompatibilityResult> GetKefinTweaksCompatibilityAsync(CancellationToken cancellationToken)
             => Task.FromResult(new CompatibilityResult

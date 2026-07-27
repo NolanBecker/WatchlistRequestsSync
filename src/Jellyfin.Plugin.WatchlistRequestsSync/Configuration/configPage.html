@@ -12,13 +12,35 @@
                     </label>
 
                     <div class="fieldGroup">
-                        <label for="baseUrl">Seerr/Jellyseerr Base URL</label>
-                        <input id="baseUrl" type="text" autocomplete="off" spellcheck="false" />
+                        <label for="sonarrBaseUrl">Sonarr Base URL</label>
+                        <input id="sonarrBaseUrl" type="text" autocomplete="off" spellcheck="false" />
                     </div>
 
                     <div class="fieldGroup">
-                        <label for="apiKey">API Key</label>
-                        <input id="apiKey" type="password" autocomplete="off" spellcheck="false" />
+                        <label for="sonarrApiKey">Sonarr API Key</label>
+                        <input id="sonarrApiKey" type="password" autocomplete="off" spellcheck="false" />
+                    </div>
+
+                    <div class="fieldGroup">
+                        <label for="sonarrTags">Sonarr Tags</label>
+                        <input id="sonarrTags" type="text" autocomplete="off" spellcheck="false" />
+                        <div class="hintText">Comma-separated labels or numeric tag ids.</div>
+                    </div>
+
+                    <div class="fieldGroup">
+                        <label for="radarrBaseUrl">Radarr Base URL</label>
+                        <input id="radarrBaseUrl" type="text" autocomplete="off" spellcheck="false" />
+                    </div>
+
+                    <div class="fieldGroup">
+                        <label for="radarrApiKey">Radarr API Key</label>
+                        <input id="radarrApiKey" type="password" autocomplete="off" spellcheck="false" />
+                    </div>
+
+                    <div class="fieldGroup">
+                        <label for="radarrTags">Radarr Tags</label>
+                        <input id="radarrTags" type="text" autocomplete="off" spellcheck="false" />
+                        <div class="hintText">Comma-separated labels or numeric tag ids.</div>
                     </div>
 
                     <div class="fieldGroup">
@@ -33,7 +55,7 @@
                 </section>
 
                 <div class="buttonRow">
-                    <button is="emby-button" type="button" id="testConnectionButton" class="raised button-submit block">Test Connection</button>
+                    <button is="emby-button" type="button" id="testConnectionButton" class="raised button-submit block">Test Connections</button>
                     <button is="emby-button" type="button" id="previewSyncButton" class="raised button-submit block">Preview Sync</button>
                     <button is="emby-button" type="button" id="runSyncButton" class="raised button-submit block">Run Sync Now</button>
                 </div>
@@ -74,20 +96,27 @@
             background: rgba(255, 255, 255, 0.03);
         }
 
-        #WatchlistRequestsSyncConfigPage .settingsSection h2 {
+        #WatchlistRequestsSyncConfigPage .settingsSection h2,
+        #WatchlistRequestsSyncConfigPage .userCard h3,
+        #WatchlistRequestsSyncConfigPage .statusOutput {
             margin: 0;
         }
 
-        #WatchlistRequestsSyncConfigPage .fieldGroup {
+        #WatchlistRequestsSyncConfigPage .fieldGroup,
+        #WatchlistRequestsSyncConfigPage .userCard {
             display: grid;
-            gap: 0.4rem;
+            gap: 0.5rem;
         }
 
-        #WatchlistRequestsSyncConfigPage .fieldGroup label {
+        #WatchlistRequestsSyncConfigPage .fieldGroup label,
+        #WatchlistRequestsSyncConfigPage .checkboxRow,
+        #WatchlistRequestsSyncConfigPage .userCard label {
             font-weight: 600;
         }
 
-        #WatchlistRequestsSyncConfigPage .fieldGroup input {
+        #WatchlistRequestsSyncConfigPage input[type="text"],
+        #WatchlistRequestsSyncConfigPage input[type="password"],
+        #WatchlistRequestsSyncConfigPage input[type="number"] {
             width: 100%;
             box-sizing: border-box;
             min-height: 2.5rem;
@@ -102,7 +131,6 @@
             display: flex;
             align-items: center;
             gap: 0.75rem;
-            font-weight: 600;
         }
 
         #WatchlistRequestsSyncConfigPage .buttonRow {
@@ -119,33 +147,7 @@
             border: 1px solid rgba(255, 255, 255, 0.15);
             border-radius: 12px;
             padding: 1rem 1rem 1.25rem;
-            display: grid;
-            gap: 0.75rem;
             background: rgba(0, 0, 0, 0.15);
-        }
-
-        #WatchlistRequestsSyncConfigPage .userCard h3 {
-            margin: 0;
-        }
-
-        #WatchlistRequestsSyncConfigPage .userCard label {
-            display: grid;
-            gap: 0.35rem;
-        }
-
-        #WatchlistRequestsSyncConfigPage .userCard input[type="text"] {
-            width: 100%;
-            box-sizing: border-box;
-            min-height: 2.25rem;
-            padding: 0.5rem 0.75rem;
-            border-radius: 6px;
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            background: rgba(255, 255, 255, 0.06);
-            color: inherit;
-        }
-
-        #WatchlistRequestsSyncConfigPage .userCard input[type="checkbox"] {
-            justify-self: start;
         }
 
         #WatchlistRequestsSyncConfigPage .statusOutput {
@@ -155,7 +157,11 @@
             border-radius: 12px;
             overflow: auto;
             white-space: pre-wrap;
-            margin: 0;
+        }
+
+        #WatchlistRequestsSyncConfigPage .hintText {
+            opacity: 0.8;
+            font-size: 0.9rem;
         }
     </style>
 
@@ -165,9 +171,8 @@
 
             const pluginId = "7b2cef2e-d5ea-43e2-be8e-ab2070b2d18e";
             const page = document.querySelector("#WatchlistRequestsSyncConfigPage");
-            const form = document.querySelector("#watchlistRequestsSyncForm");
 
-            if (!page || !form) {
+            if (!page) {
                 return;
             }
 
@@ -182,24 +187,36 @@
                 users.forEach(function (user, index) {
                     const wrapper = document.createElement("div");
                     wrapper.className = "userCard";
+                    wrapper.dataset.index = index.toString();
                     wrapper.innerHTML = [
                         "<h3>" + user.jellyfinUserName + "</h3>",
                         "<label>Enable Sync <input type='checkbox' data-field='isEnabled' " + (user.settings.isEnabled ? "checked" : "") + " /></label>",
-                        "<label>Seerr User ID <input type='text' data-field='seerrUserId' value='" + (user.settings.seerrUserId || "") + "' /></label>",
-                        "<label>Optional Media Tag <input type='text' data-field='mediaTag' value='" + (user.settings.mediaTag || "") + "' /></label>",
                         "<label>Include Movies <input type='checkbox' data-field='includeMovies' " + (user.settings.includeMovies ? "checked" : "") + " /></label>",
-                        "<label>Include Series <input type='checkbox' data-field='includeSeries' " + (user.settings.includeSeries ? "checked" : "") + " /></label>",
-                        "<label>Include Pending <input type='checkbox' data-field='includePendingRequests' " + (user.settings.includePendingRequests ? "checked" : "") + " /></label>",
-                        "<label>Include Approved <input type='checkbox' data-field='includeApprovedRequests' " + (user.settings.includeApprovedRequests ? "checked" : "") + " /></label>",
-                        "<label>Include Available <input type='checkbox' data-field='includeAvailableRequests' " + (user.settings.includeAvailableRequests ? "checked" : "") + " /></label>"
+                        "<label>Include Series <input type='checkbox' data-field='includeSeries' " + (user.settings.includeSeries ? "checked" : "") + " /></label>"
                     ].join("");
-                    wrapper.dataset.index = index.toString();
                     container.appendChild(wrapper);
+                });
+            }
+
+            function captureUsers(existingUsers) {
+                const cards = Array.from(page.querySelectorAll("#userSettingsContainer .userCard"));
+                return cards.map(function (card) {
+                    const original = existingUsers[parseInt(card.dataset.index, 10)];
+                    const updated = JSON.parse(JSON.stringify(original.settings));
+
+                    card.querySelectorAll("[data-field]").forEach(function (field) {
+                        updated[field.dataset.field] = field.checked;
+                    });
+
+                    updated.jellyfinUserId = original.jellyfinUserId;
+                    updated.jellyfinUserName = original.jellyfinUserName;
+                    return updated;
                 });
             }
 
             async function fetchUsers() {
                 const users = await ApiClient.getJSON(ApiClient.getUrl("Plugins/WatchlistRequestsSync/Users"));
+                page._users = users;
                 renderUsers(users);
                 return users;
             }
@@ -209,32 +226,15 @@
                 byId("statusOutput").textContent = JSON.stringify(status, null, 2);
             }
 
-            function captureUsers(existingUsers) {
-                const cards = Array.from(page.querySelectorAll("#userSettingsContainer .userCard"));
-                return cards.map(function (card) {
-                    const index = parseInt(card.dataset.index, 10);
-                    const original = existingUsers[index];
-                    const updated = JSON.parse(JSON.stringify(original.settings));
-
-                    card.querySelectorAll("[data-field]").forEach(function (field) {
-                        if (field.type === "checkbox") {
-                            updated[field.dataset.field] = field.checked;
-                        } else {
-                            updated[field.dataset.field] = field.value;
-                        }
-                    });
-
-                    updated.jellyfinUserId = original.jellyfinUserId;
-                    updated.jellyfinUserName = original.jellyfinUserName;
-                    return updated;
-                });
-            }
-
             async function buildCurrentConfig() {
                 const config = await ApiClient.getPluginConfiguration(pluginId);
                 config.isEnabled = byId("enablePlugin").checked;
-                config.seerrBaseUrl = (byId("baseUrl").value || "").trim();
-                config.apiKey = byId("apiKey").value;
+                config.sonarrBaseUrl = (byId("sonarrBaseUrl").value || "").trim();
+                config.sonarrApiKey = byId("sonarrApiKey").value || "";
+                config.sonarrTags = (byId("sonarrTags").value || "").trim();
+                config.radarrBaseUrl = (byId("radarrBaseUrl").value || "").trim();
+                config.radarrApiKey = byId("radarrApiKey").value || "";
+                config.radarrTags = (byId("radarrTags").value || "").trim();
                 config.syncIntervalMinutes = parseInt(byId("syncIntervalMinutes").value || "360", 10);
                 config.dryRun = byId("dryRun").checked;
                 config.users = captureUsers(page._users || []);
@@ -258,9 +258,7 @@
                     type: "POST",
                     url: ApiClient.getUrl("Plugins/WatchlistRequestsSync/" + endpoint),
                     contentType: "application/json",
-                    data: JSON.stringify({
-                        configuration: config
-                    }),
+                    data: JSON.stringify({ configuration: config }),
                     dataType: "json"
                 });
                 byId("statusOutput").textContent = JSON.stringify(result, null, 2);
@@ -269,19 +267,21 @@
             async function loadPage() {
                 const config = await ApiClient.getPluginConfiguration(pluginId);
                 byId("enablePlugin").checked = !!config.isEnabled;
-                byId("baseUrl").value = config.seerrBaseUrl || "";
-                byId("apiKey").value = config.apiKey || "";
+                byId("sonarrBaseUrl").value = config.sonarrBaseUrl || "";
+                byId("sonarrApiKey").value = config.sonarrApiKey || "";
+                byId("sonarrTags").value = config.sonarrTags || "";
+                byId("radarrBaseUrl").value = config.radarrBaseUrl || "";
+                byId("radarrApiKey").value = config.radarrApiKey || "";
+                byId("radarrTags").value = config.radarrTags || "";
                 byId("syncIntervalMinutes").value = config.syncIntervalMinutes || 360;
                 byId("dryRun").checked = !!config.dryRun;
-                page._users = await fetchUsers();
+                await fetchUsers();
                 await showStatus();
             }
 
             byId("saveButton").addEventListener("click", async function () {
-                const savedConfig = await persistCurrentConfig();
+                await persistCurrentConfig();
                 byId("statusOutput").textContent = "Configuration saved.";
-                byId("baseUrl").value = savedConfig.seerrBaseUrl || "";
-                byId("apiKey").value = savedConfig.apiKey || "";
                 Dashboard.processPluginConfigurationUpdateResult();
             });
 
@@ -291,8 +291,10 @@
                     url: ApiClient.getUrl("Plugins/WatchlistRequestsSync/TestConnection"),
                     contentType: "application/json",
                     data: JSON.stringify({
-                        seerrBaseUrl: (byId("baseUrl").value || "").trim(),
-                        apiKey: byId("apiKey").value || ""
+                        sonarrBaseUrl: (byId("sonarrBaseUrl").value || "").trim(),
+                        sonarrApiKey: byId("sonarrApiKey").value || "",
+                        radarrBaseUrl: (byId("radarrBaseUrl").value || "").trim(),
+                        radarrApiKey: byId("radarrApiKey").value || ""
                     }),
                     dataType: "json"
                 });

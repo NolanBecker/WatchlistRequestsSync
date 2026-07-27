@@ -15,30 +15,22 @@ public interface IPluginStateStore
     Task SaveAsync(PluginState state, CancellationToken cancellationToken);
 }
 
-public interface ISeerrClient
+public interface IArrClient
 {
-    Task<SeerrConnectionTestResult> TestConnectionAsync(CancellationToken cancellationToken);
+    ArrSourceKind Source { get; }
 
-    Task<SeerrConnectionTestResult> TestConnectionAsync(string baseUrl, string apiKey, CancellationToken cancellationToken);
+    Task<ArrConnectionTestResult> TestConnectionAsync(CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<NormalizedSeerrRequest>> GetRequestsAsync(CancellationToken cancellationToken);
+    Task<ArrConnectionTestResult> TestConnectionAsync(string baseUrl, string apiKey, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<NormalizedSeerrRequest>> GetRequestsAsync(string baseUrl, string apiKey, CancellationToken cancellationToken);
-}
+    Task<IReadOnlyList<ArrMediaItem>> GetTaggedItemsAsync(CancellationToken cancellationToken);
 
-public interface IUserMappingService
-{
-    string? MapSeerrRequestToJellyfinUser(NormalizedSeerrRequest request, IReadOnlyDictionary<long, string> explicitMappings);
-}
-
-public interface ITagSyncService
-{
-    Task<IReadOnlyList<SyncCandidate>> GetTagCandidatesAsync(UserSyncSettings userSettings, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ArrMediaItem>> GetTaggedItemsAsync(string baseUrl, string apiKey, string configuredTags, CancellationToken cancellationToken);
 }
 
 public interface IJellyfinMediaMatcher
 {
-    Task<MediaMatchResult> MatchRequestAsync(string jellyfinUserId, NormalizedSeerrRequest request, CancellationToken cancellationToken);
+    Task<MediaMatchResult> MatchItemAsync(string jellyfinUserId, ArrMediaItem item, CancellationToken cancellationToken);
 }
 
 public interface IKefinTweaksWatchlistAdapter
@@ -52,9 +44,9 @@ public interface IKefinTweaksWatchlistAdapter
 
 public interface ISyncService
 {
-    Task<SeerrConnectionTestResult> TestConnectionAsync(CancellationToken cancellationToken);
+    Task<ConnectionTestResult> TestConnectionAsync(CancellationToken cancellationToken);
 
-    Task<SeerrConnectionTestResult> TestConnectionAsync(string baseUrl, string apiKey, CancellationToken cancellationToken);
+    Task<ConnectionTestResult> TestConnectionAsync(ConnectionTestRequest request, CancellationToken cancellationToken);
 
     Task<SyncExecutionResult> PreviewAsync(CancellationToken cancellationToken);
 

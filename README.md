@@ -1,6 +1,6 @@
 # Watchlist Requests Sync
 
-Jellyfin server plugin for Jellyfin `10.11.x` that syncs each user's Seerr or Jellyseerr requests into that same user's KefinTweaks watchlist using additive Jellyfin `Likes`.
+Jellyfin server plugin for Jellyfin `10.11.x` that finds Sonarr series and Radarr movies with configured tags, then adds the matching library items to each enabled Jellyfin user's KefinTweaks watchlist using additive Jellyfin `Likes`.
 
 ## How it works
 
@@ -12,13 +12,29 @@ KefinTweaks documents its watchlist as being backed by Jellyfin item `Likes`, qu
 
 ## Features
 
-- Per-user Seerr/Jellyseerr to Jellyfin user mapping
-- Additive-only watchlist sync for movies and series
-- Optional per-user Jellyfin tag inclusion
+- Sonarr tag sync for series
+- Radarr tag sync for movies
+- Per-user Jellyfin enablement and movie/series inclusion toggles
 - Dry-run preview mode
 - Manual sync, preview, and connection test actions in the admin dashboard
 - Scheduled sync task
 - GitHub Releases and Jellyfin plugin repository manifest support
+
+## Configuration
+
+1. Open Jellyfin Dashboard > Plugins > Watchlist Requests Sync.
+2. Configure Sonarr and/or Radarr base URLs and API keys.
+3. Configure the Sonarr tags and Radarr tags to include. Use comma-separated labels or numeric tag ids.
+4. Enable sync for the Jellyfin user accounts that should receive the matching watchlist items.
+5. Use `Test Connections`, then `Preview Sync`, then `Run Sync Now`.
+
+If both Sonarr and Radarr are configured, the plugin merges both sources before writing to each enabled Jellyfin watchlist.
+
+## Matching rules
+
+- Movies: TMDb first, then IMDb, then exact title + year
+- Series: TVDb first, then TMDb, then IMDb, then exact title + year
+- Ambiguous fallback matches are skipped
 
 ## Install from a Jellyfin repository
 
@@ -47,21 +63,6 @@ The plugin folder is typically:
 - Windows tray install: `%ProgramData%\Jellyfin\Server\plugins`
 - Linux: `/var/lib/jellyfin/plugins`
 
-## Configuration
-
-1. Open Jellyfin Dashboard > Plugins > Watchlist Requests Sync.
-2. Configure the Seerr/Jellyseerr base URL and API key.
-3. Enable sync per Jellyfin user and set each user's Seerr/Jellyseerr user id mapping if Jellyfin user id auto-match is not available from Seerr.
-4. Optionally configure a per-user media tag for additive tag-based inclusion.
-5. Use `Test Connection`, then `Preview Sync`, then `Run Sync Now`.
-
-## Matching rules
-
-- Movies: TMDb first
-- Series: TVDb first, then TMDb, then IMDb
-- Fallback: exact title + year
-- Ambiguous fallback matches are skipped
-
 ## Release and packaging
 
 This repo uses `build.yaml` as the release metadata source for:
@@ -77,44 +78,20 @@ Local packaging:
 ./scripts/Package-Plugin.ps1
 ```
 
-This produces:
-
-- a release zip in `artifacts/package`
-- an `.md5` checksum file
-- package metadata for CI validation
-
 Manifest generation:
 
 ```powershell
 ./scripts/Generate-Manifest.ps1 -Owner "NolanBecker" -Repository "WatchlistRequestsSync"
 ```
 
-## Maintainer release flow
-
-1. Update `build.yaml` with the next plugin `version`, `targetAbi`, and changelog seed.
-2. Commit and push the release commit.
-3. Create a Git tag and GitHub Release named `v<version>`.
-4. Publish the release.
-5. GitHub Actions will:
-   - build and test the plugin
-   - package the release zip
-   - upload the zip and checksum to the GitHub Release
-   - generate `manifest.json`
-   - publish the manifest to `gh-pages`
-
-Important release rules:
-
-- The GitHub Release tag must exactly match `v<build.yaml version>`.
-- The Jellyfin package reference version and `targetAbi` should match the Jellyfin server line you are releasing for. For the current release track, this plugin targets the 10.11.0 ABI baseline.
-
 ## Safety notes
 
 - No delete operations are implemented.
 - No watchlist rebuild path exists.
 - If KefinTweaks cannot be positively detected from plugin metadata, the plugin surfaces a warning and continues because the integration uses Jellyfin `Likes`.
-- Seerr/Jellyseerr failures are surfaced as non-destructive sync errors.
+- Sonarr or Radarr fetch failures are surfaced as non-destructive sync errors.
 
-## Notes
+## Verification
 
-- Season-specific Seerr TV requests add the parent series only in v1.
-- Partially available requests follow the configured partial-availability mode.
+- `dotnet build` succeeds through the solution build.
+- `dotnet test WatchlistRequestsSync.sln` passes after installing a local `.NET 9.0.18` ASP.NET runtime under `.dotnet/runtime9` for test execution on this machine.

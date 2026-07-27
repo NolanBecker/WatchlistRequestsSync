@@ -7,35 +7,60 @@ public sealed class SyncService : ISyncService
 {
     private readonly IPluginConfigurationAccessor _configurationAccessor;
     private readonly IPluginStateStore _stateStore;
-    private readonly ISeerrClient _seerrClient;
-    private readonly IUserMappingService _userMappingService;
+    private readonly IReadOnlyList<IArrClient> _arrClients;
     private readonly IJellyfinMediaMatcher _mediaMatcher;
     private readonly IKefinTweaksWatchlistAdapter _watchlistAdapter;
-    private readonly ITagSyncService _tagSyncService;
 
     public SyncService(
         IPluginConfigurationAccessor configurationAccessor,
         IPluginStateStore stateStore,
-        ISeerrClient seerrClient,
-        IUserMappingService userMappingService,
+        IEnumerable<IArrClient> arrClients,
         IJellyfinMediaMatcher mediaMatcher,
-        IKefinTweaksWatchlistAdapter watchlistAdapter,
-        ITagSyncService tagSyncService)
+        IKefinTweaksWatchlistAdapter watchlistAdapter)
     {
         _configurationAccessor = configurationAccessor;
         _stateStore = stateStore;
-        _seerrClient = seerrClient;
-        _userMappingService = userMappingService;
+        _arrClients = arrClients.ToList();
         _mediaMatcher = mediaMatcher;
         _watchlistAdapter = watchlistAdapter;
-        _tagSyncService = tagSyncService;
     }
 
-    public Task<SeerrConnectionTestResult> TestConnectionAsync(CancellationToken cancellationToken)
-        => _seerrClient.TestConnectionAsync(cancellationToken);
+    public Task<ConnectionTestResult> TestConnectionAsync(CancellationToken cancellationToken)
+        => TestConnectionAsync(ToConnectionTestRequest(_configurationAccessor.GetConfiguration()), cancellationToken);
 
-    public Task<SeerrConnectionTestResult> TestConnectionAsync(string baseUrl, string apiKey, CancellationToken cancellationToken)
-        => _seerrClient.TestConnectionAsync(baseUrl, apiKey, cancellationToken);
+    public async Task<ConnectionTestResult> TestConnectionAsync(ConnectionTestRequest request, CancellationToken cancellationToken)
+    {
+        var result = new ConnectionTestResult();
+        foreach (var client in _arrClients)
+        {
+            var (baseUrl, apiKey) = GetConnectionSettings(client.Source, request);
+            if (string.IsNullOrWhiteSpace(baseUrl))
+            {
+                result.Sources.Add(new SourceConnectionResult
+                {
+                    Source = client.Source,
+                    IsEnabled = false,
+                    IsSuccess = true,
+                    Message = "Not configured."
+                });
+                continue;
+            }
+
+            var sourceResult = await client.TestConnectionAsync(baseUrl, apiKey, cancellationToken).ConfigureAwait(false);
+            result.Sources.Add(new SourceConnectionResult
+            {
+                Source = client.Source,
+                IsEnabled = true,
+                IsSuccess = sourceResult.IsSuccess,
+                Message = sourceResult.Message,
+                NormalizedBaseUrl = sourceResult.NormalizedBaseUrl
+            });
+        }
+
+        var enabledSources = result.Sources.Where(static source => source.IsEnabled).ToList();
+        result.IsSuccess = enabledSources.Count > 0 && enabledSources.All(static source => source.IsSuccess);
+        return result;
+    }
 
     public Task<SyncExecutionResult> PreviewAsync(CancellationToken cancellationToken)
         => RunCoreAsync(SyncRunMode.Preview, _configurationAccessor.GetConfiguration(), true, cancellationToken);
@@ -77,40 +102,26 @@ public sealed class SyncService : ISyncService
             return result;
         }
 
-        IReadOnlyList<NormalizedSeerrRequest> requests;
-        try
-        {
-            requests = await _seerrClient.GetRequestsAsync(configuration.SeerrBaseUrl, configuration.ApiKey, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            result.Errors.Add($"Failed to fetch requests: {ex.Message}");
-            result.CompletedAtUtc = DateTimeOffset.UtcNow;
-            return result;
-        }
-
         var state = await _stateStore.LoadAsync(cancellationToken).ConfigureAwait(false);
-        var explicitMappings = configuration.Users
-            .Where(static u => long.TryParse(u.SeerrUserId, out _))
-            .ToDictionary(static u => long.Parse(u.SeerrUserId), static u => u.JellyfinUserId);
+        var sourceItems = await LoadSourceItemsAsync(configuration, result, cancellationToken).ConfigureAwait(false);
+        if (sourceItems.Count == 0)
+        {
+            result.Errors.Add("No tagged Sonarr or Radarr items were found. Check the configured base URLs, API keys, and tag names.");
+        }
 
         foreach (var userSettings in configuration.Users.Where(static user => user.IsEnabled))
         {
             var perUser = new PerUserSyncReport
             {
                 JellyfinUserId = userSettings.JellyfinUserId,
-                JellyfinUserName = userSettings.JellyfinUserName,
-                SeerrUserId = userSettings.SeerrUserId
+                JellyfinUserName = userSettings.JellyfinUserName
             };
 
             var watchlistItems = await _watchlistAdapter.GetWatchlistItemIdsAsync(userSettings.JellyfinUserId, cancellationToken).ConfigureAwait(false);
-            var requestCandidates = await GetRequestCandidatesAsync(userSettings, configuration, requests, explicitMappings, perUser, cancellationToken).ConfigureAwait(false);
-            var tagCandidates = await _tagSyncService.GetTagCandidatesAsync(userSettings, cancellationToken).ConfigureAwait(false);
+            var candidates = await GetCandidatesAsync(userSettings, sourceItems, perUser, cancellationToken).ConfigureAwait(false);
+            perUser.CandidateItems.AddRange(candidates);
 
-            perUser.RequestCandidates.AddRange(requestCandidates);
-            perUser.TagCandidates.AddRange(tagCandidates);
-
-            foreach (var candidate in requestCandidates.Concat(tagCandidates).DistinctBy(static c => c.JellyfinItemId))
+            foreach (var candidate in candidates.DistinctBy(static c => c.JellyfinItemId))
             {
                 if (watchlistItems.Contains(candidate.JellyfinItemId))
                 {
@@ -126,7 +137,7 @@ public sealed class SyncService : ISyncService
                         JellyfinUserId = userSettings.JellyfinUserId,
                         JellyfinItemId = candidate.JellyfinItemId,
                         Source = candidate.Source,
-                        RequestId = candidate.RequestId,
+                        SourceItemKey = candidate.SourceItemKey,
                         ProviderIds = candidate.ProviderIds,
                         AddedAtUtc = DateTimeOffset.UtcNow
                     });
@@ -148,30 +159,54 @@ public sealed class SyncService : ISyncService
         return result;
     }
 
-    private async Task<IReadOnlyList<SyncCandidate>> GetRequestCandidatesAsync(
-        UserSyncSettings userSettings,
+    private async Task<IReadOnlyList<ArrMediaItem>> LoadSourceItemsAsync(
         PluginConfiguration configuration,
-        IReadOnlyList<NormalizedSeerrRequest> allRequests,
-        IReadOnlyDictionary<long, string> explicitMappings,
+        SyncExecutionResult result,
+        CancellationToken cancellationToken)
+    {
+        var items = new List<ArrMediaItem>();
+        foreach (var client in _arrClients)
+        {
+            var (baseUrl, apiKey, tags) = GetSourceSettings(client.Source, configuration);
+            if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(tags))
+            {
+                continue;
+            }
+
+            try
+            {
+                items.AddRange(await client.GetTaggedItemsAsync(baseUrl, apiKey, tags, cancellationToken).ConfigureAwait(false));
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add($"Failed to fetch {client.Source} tagged items: {ex.Message}");
+            }
+        }
+
+        return items;
+    }
+
+    private async Task<IReadOnlyList<SyncCandidate>> GetCandidatesAsync(
+        UserSyncSettings userSettings,
+        IReadOnlyList<ArrMediaItem> sourceItems,
         PerUserSyncReport perUser,
         CancellationToken cancellationToken)
     {
-        var includedRequests = allRequests
-            .Where(request => string.Equals(_userMappingService.MapSeerrRequestToJellyfinUser(request, explicitMappings), userSettings.JellyfinUserId, StringComparison.OrdinalIgnoreCase))
-            .Where(request => ShouldIncludeRequest(configuration, userSettings, request))
+        var includedItems = sourceItems
+            .Where(item => ShouldIncludeItem(userSettings, item))
             .ToList();
 
         var candidates = new List<SyncCandidate>();
-        foreach (var request in includedRequests)
+        foreach (var item in includedItems)
         {
-            var match = await _mediaMatcher.MatchRequestAsync(userSettings.JellyfinUserId, request, cancellationToken).ConfigureAwait(false);
+            var match = await _mediaMatcher.MatchItemAsync(userSettings.JellyfinUserId, item, cancellationToken).ConfigureAwait(false);
             if (!match.IsMatch)
             {
                 perUser.UnmatchedItems.Add(new UnmatchedItemReport
                 {
-                    SourceName = request.Title,
+                    SourceName = item.Title,
                     Reason = match.FailureReason,
-                    ProviderIds = request.ProviderIds
+                    ProviderIds = item.ProviderIds
                 });
                 continue;
             }
@@ -181,53 +216,50 @@ public sealed class SyncService : ISyncService
                 JellyfinUserId = userSettings.JellyfinUserId,
                 JellyfinItemId = match.JellyfinItemId,
                 ItemName = match.ItemName,
-                Source = SyncItemSource.Request,
-                RequestId = request.RequestId,
-                ProviderIds = request.ProviderIds
+                Source = item.Source == ArrSourceKind.Sonarr ? SyncItemSource.SonarrTag : SyncItemSource.RadarrTag,
+                SourceItemKey = $"{item.Source}:{item.SourceItemId}",
+                ProviderIds = item.ProviderIds
             });
         }
 
         return candidates;
     }
 
-    private static bool ShouldIncludeRequest(PluginConfiguration configuration, UserSyncSettings userSettings, NormalizedSeerrRequest request)
+    private static bool ShouldIncludeItem(UserSyncSettings userSettings, ArrMediaItem item)
     {
-        if (request.MediaType == RequestMediaType.Movie && !userSettings.IncludeMovies)
+        if (item.MediaKind == MediaKind.Movie && !userSettings.IncludeMovies)
         {
             return false;
         }
 
-        if (request.MediaType == RequestMediaType.Series && !userSettings.IncludeSeries)
+        if (item.MediaKind == MediaKind.Series && !userSettings.IncludeSeries)
         {
             return false;
-        }
-
-        if (request.ApprovalState == RequestApprovalState.Pending && !userSettings.IncludePendingRequests)
-        {
-            return false;
-        }
-
-        if (request.ApprovalState == RequestApprovalState.Approved && !userSettings.IncludeApprovedRequests)
-        {
-            return false;
-        }
-
-        if (request.AvailabilityState == RequestAvailabilityState.Available && !userSettings.IncludeAvailableRequests)
-        {
-            return false;
-        }
-
-        var partialMode = configuration.PartialAvailabilityMode;
-        if (request.AvailabilityState == RequestAvailabilityState.PartiallyAvailable)
-        {
-            return partialMode switch
-            {
-                PartialAvailabilityMode.Include => true,
-                PartialAvailabilityMode.Exclude => false,
-                _ => userSettings.IncludeAvailableRequests
-            };
         }
 
         return true;
     }
+
+    private static ConnectionTestRequest ToConnectionTestRequest(PluginConfiguration configuration)
+        => new()
+        {
+            SonarrBaseUrl = configuration.SonarrBaseUrl,
+            SonarrApiKey = configuration.SonarrApiKey,
+            RadarrBaseUrl = configuration.RadarrBaseUrl,
+            RadarrApiKey = configuration.RadarrApiKey
+        };
+
+    private static (string BaseUrl, string ApiKey) GetConnectionSettings(ArrSourceKind source, ConnectionTestRequest request)
+        => source switch
+        {
+            ArrSourceKind.Sonarr => (request.SonarrBaseUrl, request.SonarrApiKey),
+            _ => (request.RadarrBaseUrl, request.RadarrApiKey)
+        };
+
+    private static (string BaseUrl, string ApiKey, string Tags) GetSourceSettings(ArrSourceKind source, PluginConfiguration configuration)
+        => source switch
+        {
+            ArrSourceKind.Sonarr => (configuration.SonarrBaseUrl, configuration.SonarrApiKey, configuration.SonarrTags),
+            _ => (configuration.RadarrBaseUrl, configuration.RadarrApiKey, configuration.RadarrTags)
+        };
 }

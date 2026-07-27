@@ -17,7 +17,7 @@ public sealed class WatchlistRequestsSyncTask : IScheduledTask
 
     public string Name => "Watchlist Requests Sync";
 
-    public string Description => "Synchronizes Seerr or Jellyseerr requests into user watchlists using additive Likes updates.";
+    public string Description => "Synchronizes Sonarr and Radarr items with configured tags into user watchlists using additive Likes updates.";
 
     public string Category => "Plugins";
 

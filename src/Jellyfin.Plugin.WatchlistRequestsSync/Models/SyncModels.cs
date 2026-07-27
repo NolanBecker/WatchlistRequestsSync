@@ -2,8 +2,8 @@ namespace Jellyfin.Plugin.WatchlistRequestsSync.Models;
 
 public enum SyncItemSource
 {
-    Request,
-    Tag
+    SonarrTag,
+    RadarrTag
 }
 
 public sealed class WatchlistMetadataEntry
@@ -14,7 +14,7 @@ public sealed class WatchlistMetadataEntry
 
     public SyncItemSource Source { get; set; }
 
-    public long? RequestId { get; set; }
+    public string SourceItemKey { get; set; } = string.Empty;
 
     public ProviderIdSet ProviderIds { get; set; } = new();
 
@@ -38,7 +38,7 @@ public sealed class SyncCandidate
 
     public SyncItemSource Source { get; set; }
 
-    public long? RequestId { get; set; }
+    public string SourceItemKey { get; set; } = string.Empty;
 
     public ProviderIdSet ProviderIds { get; set; } = new();
 }
@@ -58,11 +58,7 @@ public sealed class PerUserSyncReport
 
     public string JellyfinUserName { get; set; } = string.Empty;
 
-    public string SeerrUserId { get; set; } = string.Empty;
-
-    public List<SyncCandidate> RequestCandidates { get; set; } = [];
-
-    public List<SyncCandidate> TagCandidates { get; set; } = [];
+    public List<SyncCandidate> CandidateItems { get; set; } = [];
 
     public List<SyncCandidate> AddedItems { get; set; } = [];
 
