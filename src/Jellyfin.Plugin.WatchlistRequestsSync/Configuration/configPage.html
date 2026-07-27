@@ -297,11 +297,19 @@
             }
 
             function normalizeCoreUsers(users, existingUsersById) {
-                if (!Array.isArray(users)) {
+                const sourceUsers = Array.isArray(users)
+                    ? users
+                    : Array.isArray(users && users.Items)
+                        ? users.Items
+                        : Array.isArray(users && users.items)
+                            ? users.items
+                            : [];
+
+                if (!sourceUsers.length) {
                     return [];
                 }
 
-                return users.map(function (user) {
+                return sourceUsers.map(function (user) {
                     const userId = normalizeUserId(user.id || user.Id);
                     if (!userId) {
                         return null;
@@ -318,11 +326,19 @@
             }
 
             async function fetchFallbackUsers(existingUsersById) {
-                const users = await ApiClient.ajax({
+                let users = await ApiClient.ajax({
                     type: "GET",
                     url: ApiClient.getUrl("Users"),
                     dataType: "json"
                 });
+
+                if (!normalizeCoreUsers(users, existingUsersById).length) {
+                    users = await ApiClient.ajax({
+                        type: "GET",
+                        url: ApiClient.getUrl("Users/Query"),
+                        dataType: "json"
+                    });
+                }
 
                 return normalizeCoreUsers(users, existingUsersById);
             }

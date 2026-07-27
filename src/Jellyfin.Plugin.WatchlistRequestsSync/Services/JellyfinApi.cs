@@ -32,14 +32,36 @@ public sealed class JellyfinApi : IJellyfinApi
 
     public Task<IReadOnlyList<JellyfinUserInfo>> GetUsersAsync(CancellationToken cancellationToken)
     {
-        IReadOnlyList<JellyfinUserInfo> users = _userManager.Users
+        var users = _userManager.Users
             .Select(static user => new JellyfinUserInfo
             {
                 Id = user.Id.ToString("N"),
                 Name = user.Username
             })
             .ToList();
-        return Task.FromResult(users);
+
+        if (users.Count == 0)
+        {
+            users = _userManager.UsersIds
+                .Select(_userManager.GetUserById)
+                .Where(static user => user is not null)
+                .Select(static user => new JellyfinUserInfo
+                {
+                    Id = user!.Id.ToString("N"),
+                    Name = user.Username
+                })
+                .ToList();
+        }
+
+        IReadOnlyList<JellyfinUserInfo> result = users
+            .Select(static user => new JellyfinUserInfo
+            {
+                Id = user.Id,
+                Name = user.Name
+            })
+            .ToList();
+
+        return Task.FromResult(result);
     }
 
     public Task<IReadOnlyList<JellyfinLibraryItem>> GetWatchlistItemsAsync(string jellyfinUserId, CancellationToken cancellationToken)
