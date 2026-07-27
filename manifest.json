@@ -2,8 +2,8 @@
   {
     "guid": "7b2cef2e-d5ea-43e2-be8e-ab2070b2d18e",
     "name": "Watchlist Requests Sync",
-    "overview": "Sync Seerr and Jellyseerr requests into per-user KefinTweaks watchlists.",
-    "description": "Server-side Jellyfin plugin that syncs each user's Seerr or Jellyseerr requests into that same user's KefinTweaks watchlist using additive Jellyfin Likes updates. Includes optional per-user tag-based watchlist inclusion.",
+    "overview": "Sync tagged Sonarr and Radarr items into per-user KefinTweaks watchlists.",
+    "description": "Server-side Jellyfin plugin that finds Sonarr series and Radarr movies with configured tags, then adds the matching Jellyfin library items into each enabled user's KefinTweaks watchlist using additive Jellyfin Likes updates.",
     "owner": "NolanBecker",
     "category": "General",
     "imageUrl": "",
