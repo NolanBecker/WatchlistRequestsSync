@@ -24,6 +24,18 @@ if ($env:GITHUB_TOKEN) {
     $headers["Authorization"] = "Bearer $($env:GITHUB_TOKEN)"
 }
 
+function Get-CurrentReleaseTag {
+    if ($env:RELEASE_TAG) {
+        return $env:RELEASE_TAG
+    }
+
+    if ($env:GITHUB_REF_TYPE -eq "tag" -and $env:GITHUB_REF_NAME) {
+        return $env:GITHUB_REF_NAME
+    }
+
+    return $null
+}
+
 function Get-ReleaseManifestEntry {
     param(
         [Parameter(Mandatory = $true)]
@@ -109,6 +121,20 @@ function Get-ReleaseManifestEntry {
 
 $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$Owner/$Repository/releases?per_page=100" -Headers $headers
 $stableReleases = @($releases | Where-Object { -not $_.draft -and -not $_.prerelease })
+
+$currentReleaseTag = Get-CurrentReleaseTag
+if ($currentReleaseTag) {
+    try {
+        $currentRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/$Owner/$Repository/releases/tags/$currentReleaseTag" -Headers $headers
+        $stableReleases = @(
+            $currentRelease
+            $stableReleases | Where-Object { $_.tag_name -ne $currentReleaseTag }
+        )
+    }
+    catch {
+        Write-Warning "Current release '$currentReleaseTag' could not be loaded directly. Falling back to the release list response."
+    }
+}
 
 $versionEntries = foreach ($release in $stableReleases) {
     Get-ReleaseManifestEntry -Release $release -Owner $Owner -Repository $Repository -Headers $headers -ScriptRoot $PSScriptRoot
