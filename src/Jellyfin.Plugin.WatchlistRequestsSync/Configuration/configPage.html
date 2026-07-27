@@ -163,6 +163,14 @@
             opacity: 0.8;
             font-size: 0.9rem;
         }
+
+        #WatchlistRequestsSyncConfigPage .emptyState {
+            padding: 1rem;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            line-height: 1.45;
+        }
     </style>
 
     <script type="text/javascript">
@@ -184,6 +192,14 @@
                 const container = byId("userSettingsContainer");
                 container.innerHTML = "";
 
+                if (!users.length) {
+                    const emptyState = document.createElement("div");
+                    emptyState.className = "emptyState";
+                    emptyState.textContent = "No Jellyfin users were loaded. Save your settings, reload the page, or sign in with an admin account that can view users.";
+                    container.appendChild(emptyState);
+                    return;
+                }
+
                 users.forEach(function (user, index) {
                     const wrapper = document.createElement("div");
                     wrapper.className = "userCard";
@@ -196,6 +212,86 @@
                     ].join("");
                     container.appendChild(wrapper);
                 });
+            }
+
+            function createDefaultSettings(userId, userName) {
+                return {
+                    jellyfinUserId: userId,
+                    jellyfinUserName: userName,
+                    isEnabled: false,
+                    includeMovies: true,
+                    includeSeries: true
+                };
+            }
+
+            function normalizeUserId(value) {
+                return value || "";
+            }
+
+            function normalizeUserName(user) {
+                return user.jellyfinUserName
+                    || user.JellyfinUserName
+                    || user.name
+                    || user.Name
+                    || user.username
+                    || user.Username
+                    || "Unknown User";
+            }
+
+            function normalizePluginUsers(users) {
+                if (!Array.isArray(users)) {
+                    return [];
+                }
+
+                return users.map(function (user) {
+                    const userId = normalizeUserId(user.jellyfinUserId || user.JellyfinUserId);
+                    if (!userId) {
+                        return null;
+                    }
+
+                    const userName = normalizeUserName(user);
+                    return {
+                        jellyfinUserId: userId,
+                        jellyfinUserName: userName,
+                        settings: user.settings || user.Settings || createDefaultSettings(userId, userName)
+                    };
+                }).filter(Boolean);
+            }
+
+            function normalizeCoreUsers(users, existingUsersById) {
+                if (!Array.isArray(users)) {
+                    return [];
+                }
+
+                return users.map(function (user) {
+                    const userId = normalizeUserId(user.id || user.Id);
+                    if (!userId) {
+                        return null;
+                    }
+
+                    const userName = normalizeUserName(user);
+                    const existing = existingUsersById[userId];
+                    return {
+                        jellyfinUserId: userId,
+                        jellyfinUserName: userName,
+                        settings: existing ? JSON.parse(JSON.stringify(existing.settings)) : createDefaultSettings(userId, userName)
+                    };
+                }).filter(Boolean);
+            }
+
+            async function fetchFallbackUsers(existingUsersById) {
+                const users = await ApiClient.ajax({
+                    type: "GET",
+                    url: ApiClient.getUrl("Users"),
+                    dataType: "json"
+                });
+
+                return normalizeCoreUsers(users, existingUsersById);
+            }
+
+            async function fetchCurrentUserFallback(existingUsersById) {
+                const currentUser = await ApiClient.getCurrentUser();
+                return normalizeCoreUsers([currentUser], existingUsersById);
             }
 
             function captureUsers(existingUsers) {
@@ -215,7 +311,28 @@
             }
 
             async function fetchUsers() {
-                const users = await ApiClient.getJSON(ApiClient.getUrl("Plugins/WatchlistRequestsSync/Users"));
+                const pluginUsers = normalizePluginUsers(await ApiClient.getJSON(ApiClient.getUrl("Plugins/WatchlistRequestsSync/Users")));
+                const existingUsersById = Object.fromEntries(pluginUsers.map(function (user) {
+                    return [user.jellyfinUserId, user];
+                }));
+
+                let users = pluginUsers;
+                if (!users.length) {
+                    try {
+                        users = await fetchFallbackUsers(existingUsersById);
+                    } catch (error) {
+                        console.warn("Failed to load Jellyfin users from the core endpoint.", error);
+                    }
+                }
+
+                if (!users.length) {
+                    try {
+                        users = await fetchCurrentUserFallback(existingUsersById);
+                    } catch (error) {
+                        console.warn("Failed to load the current Jellyfin user.", error);
+                    }
+                }
+
                 page._users = users;
                 renderUsers(users);
                 return users;

@@ -270,6 +270,20 @@ public sealed class SyncServiceTests
         Assert.Contains(result.Errors, error => error.Contains("No tagged Sonarr or Radarr items were found.", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task RunReportsWhenNoUsersAreEnabled()
+    {
+        var service = CreateSyncService(
+            sourceItems: [CreateItem(ArrSourceKind.Radarr, 101, MediaKind.Movie, "Inception")],
+            mediaMatchResults: new Dictionary<string, MediaMatchResult> { ["Radarr:101"] = Match("item-1", "Inception") },
+            configurationOverride: config => config.Users[0].IsEnabled = false);
+
+        var result = await service.RunAsync(SyncRunMode.Manual, CancellationToken.None);
+
+        Assert.Contains(result.Errors, error => error.Contains("No Jellyfin users are enabled for sync.", StringComparison.Ordinal));
+        Assert.Empty(result.Users);
+    }
+
     private static SyncService CreateSyncService(
         IReadOnlyList<ArrMediaItem> sourceItems,
         Dictionary<string, MediaMatchResult> mediaMatchResults,

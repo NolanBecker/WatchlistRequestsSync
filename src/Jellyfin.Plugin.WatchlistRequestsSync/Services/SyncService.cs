@@ -109,7 +109,13 @@ public sealed class SyncService : ISyncService
             result.Errors.Add("No tagged Sonarr or Radarr items were found. Check the configured base URLs, API keys, and tag names.");
         }
 
-        foreach (var userSettings in configuration.Users.Where(static user => user.IsEnabled))
+        var enabledUsers = configuration.Users.Where(static user => user.IsEnabled).ToList();
+        if (enabledUsers.Count == 0)
+        {
+            result.Errors.Add("No Jellyfin users are enabled for sync. Enable at least one user in Per-User Settings.");
+        }
+
+        foreach (var userSettings in enabledUsers)
         {
             var perUser = new PerUserSyncReport
             {
